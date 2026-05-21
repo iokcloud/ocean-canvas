@@ -94,7 +94,8 @@
       </div>
 
       <div class="action-buttons">
-        <button class="btn-primary" id="swim-btn">放入深海 🌊</button>
+        <button class="btn-primary" id="ai-check-btn">AI评分 🔍</button>
+        <button class="btn-primary" id="swim-btn" disabled style="opacity:0.4;cursor:not-allowed">放入深海 🌊</button>
         <a href="ocean.html" class="btn-secondary">进入深海观赏</a>
         <a href="rank.html" class="btn-secondary">查看排行</a>
       </div>
@@ -108,6 +109,8 @@
   <script src="src/js/storage.js"></script>
   <script src="src/js/supabase-db.js"></script>
   <script>if(typeof SupabaseDB!=='undefined')SupabaseDB.init();</script>
+  <script src="src/js/auth.js"></script>
+  <script>if(typeof OceanAuth!=='undefined')OceanAuth.init();</script>
   <script src="src/js/share.js"></script>
   <script src="src/js/draw.js"></script>
   <script src="src/js/bubbles.js"></script>

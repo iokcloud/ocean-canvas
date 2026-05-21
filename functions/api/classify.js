@@ -52,19 +52,19 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+const AI_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+
 let licenseAgreed = false;
 
 async function ensureLicenseAccepted(env) {
   if (licenseAgreed) return;
   try {
-    const res = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+    await env.AI.run(AI_MODEL, {
       messages: [{ role: 'user', content: 'agree' }],
       max_tokens: 1,
     });
     licenseAgreed = true;
-    console.info('[classify] License accepted for llama-3.2-11b-vision');
   } catch (e) {
-    console.warn('[classify] License accept error (may already be accepted):', e.message);
     licenseAgreed = true;
   }
 }
@@ -72,7 +72,7 @@ async function ensureLicenseAccepted(env) {
 async function classifyWithAI(env, imageBuffer, expectedType) {
   try {
     await ensureLicenseAccepted(env);
-    const response = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+    const response = await env.AI.run(AI_MODEL, {
       image: new Uint8Array(imageBuffer),
       prompt: buildPrompt(expectedType),
       max_tokens: 200,
@@ -146,7 +146,7 @@ function fallbackClassification(expectedType) {
 async function scoreCreativity(env, imageBuffer, creatureType, licenseAccepted = false) {
   try {
     if (!licenseAccepted) await ensureLicenseAccepted(env);
-    const response = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+    const response = await env.AI.run(AI_MODEL, {
       image: new Uint8Array(imageBuffer),
       prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
 

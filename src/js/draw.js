@@ -158,6 +158,66 @@
     return true;
   }
 
+  function prepareForAI() {
+    const temp = document.createElement('canvas');
+    temp.width = canvas.width;
+    temp.height = canvas.height;
+    const tCtx = temp.getContext('2d');
+
+    tCtx.fillStyle = '#ffffff';
+    tCtx.fillRect(0, 0, temp.width, temp.height);
+
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imgData.data;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i], g = pixels[i+1], b = pixels[i+2], a = pixels[i+3];
+      const isBg = (Math.abs(r - 13) < 8 && Math.abs(g - 17) < 8 && Math.abs(b - 23) < 8);
+      if (!isBg && a > 16) {
+        imgData.data[i] = r;
+        imgData.data[i+1] = g;
+        imgData.data[i+2] = b;
+        imgData.data[i+3] = 255;
+      } else {
+        imgData.data[i] = 255;
+        imgData.data[i+1] = 255;
+        imgData.data[i+2] = 255;
+        imgData.data[i+3] = 255;
+      }
+    }
+    tCtx.putImageData(imgData, 0, 0);
+
+    const cropped = cropCanvasToContent(tCtx, temp.width, temp.height);
+    return cropped || temp;
+  }
+
+  function cropCanvasToContent(tCtx, w, h) {
+    const data = tCtx.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    let found = false;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (data[i] < 240 || data[i+1] < 240 || data[i+2] < 240) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          found = true;
+        }
+      }
+    }
+    if (!found) return null;
+    const cw = maxX - minX + 1;
+    const ch = maxY - minY + 1;
+    const result = document.createElement('canvas');
+    result.width = Math.max(cw, 1);
+    result.height = Math.max(ch, 1);
+    result.getContext('2d').drawImage(
+      tCtx.canvas, minX, minY, cw, ch, 0, 0, result.width, result.height
+    );
+    return result;
+  }
+
   async function checkWithAI() {
     if (!FEATURES.aiClassification) {
       aiScore = { similarity: 0.75, isMatch: true, creativity: 50, feedback: 'AI识别已关闭' };
@@ -168,7 +228,8 @@
 
     isCheckingAI = true;
     try {
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const aiCanvas = prepareForAI();
+      const blob = await new Promise(resolve => aiCanvas.toBlob(resolve, 'image/png'));
       const formData = new FormData();
       formData.append('image', blob, 'creature.png');
       formData.append('type', currentType);
@@ -223,13 +284,6 @@
   }
 
   let checkTimeout = null;
-  function debouncedAICheck() {
-    clearTimeout(checkTimeout);
-    checkTimeout = setTimeout(() => checkWithAI(), 1500);
-  }
-
-  canvas.addEventListener('mouseup', debouncedAICheck);
-  canvas.addEventListener('touchend', debouncedAICheck);
 
   document.getElementById('swim-btn').addEventListener('click', async function() {
     const btn = this;

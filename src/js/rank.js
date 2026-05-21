@@ -60,13 +60,13 @@
   }
 
   document.querySelectorAll('.sort-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
+    btn.addEventListener('click', async function() {
       document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
       currentSort = this.dataset.sort;
-      renderGrid(getSortedCreatures(currentSort));
+      renderGrid(await getSortedCreatures(currentSort));
     });
   });
 
-  renderGrid(getSortedCreatures(currentSort));
+  renderGrid(await getSortedCreatures(currentSort));
 })();

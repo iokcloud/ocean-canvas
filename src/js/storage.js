@@ -6,6 +6,7 @@ const FEATURES = {
   decorationShop: localStorage.getItem('oc_deco') !== 'off',
   socialFeatures: localStorage.getItem('oc_social') !== 'off',
   analytics: localStorage.getItem('oc_analytics_off') !== 'true',
+  supabase: localStorage.getItem('oc_supabase_url') !== null,
 };
 
 const CREATURE_TYPES = {
@@ -38,7 +39,15 @@ function saveCreatures(creatures) {
   }
 }
 
-function addCreature(imageData, type) {
+function addCreature(imageData, type, aiData) {
+  if (typeof SupabaseDB !== 'undefined' && SupabaseDB.enabled) {
+    SupabaseDB.addCreature(imageData, type, aiData || {}).then(result => {
+      if (result && typeof MemorySystem !== 'undefined') {
+        MemorySystem.record('user_behavior', { action: 'creature_saved_remote', type, id: result.id });
+      }
+    });
+  }
+
   const creatures = getCreatures();
   const creature = {
     id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
@@ -47,7 +56,9 @@ function addCreature(imageData, type) {
     score: 0,
     votes: 0,
     createdAt: Date.now(),
-    emoji: CREATURE_TYPES[type]?.emoji || '🐟'
+    emoji: CREATURE_TYPES[type]?.emoji || '🐟',
+    aiSimilarity: aiData?.similarity || 0,
+    aiCreativity: aiData?.creativity || 0,
   };
   creatures.push(creature);
   saveCreatures(creatures);
@@ -55,6 +66,16 @@ function addCreature(imageData, type) {
 }
 
 function voteCreature(id, delta) {
+  if (typeof SupabaseDB !== 'undefined' && SupabaseDB.enabled) {
+    SupabaseDB.voteCreature(id, delta).then(result => {
+      if (result) {
+        const creatures = getCreatures();
+        const c = creatures.find(x => x.id === id);
+        if (c) { c.score = result.score; c.votes = result.votes; saveCreatures(creatures); }
+      }
+    });
+  }
+
   const creatures = getCreatures();
   const c = creatures.find(x => x.id === id);
   if (c) {
@@ -65,7 +86,24 @@ function voteCreature(id, delta) {
   return c;
 }
 
-function getSortedCreatures(sort) {
+async function getSortedCreatures(sort) {
+  if (typeof SupabaseDB !== 'undefined' && SupabaseDB.enabled) {
+    const remote = await SupabaseDB.getCreatures(sort, 100);
+    if (remote && remote.length > 0) {
+      return remote.map(c => ({
+        id: c.id,
+        imageData: c.imageData,
+        type: c.type,
+        score: c.score,
+        votes: c.votes,
+        createdAt: new Date(c.created_at).getTime(),
+        emoji: c.emoji || CREATURE_TYPES[c.type]?.emoji || '🐟',
+        aiSimilarity: c.ai_similarity || 0,
+        aiCreativity: c.ai_creativity || 0,
+      }));
+    }
+  }
+
   const creatures = getCreatures();
   switch (sort) {
     case 'popular':

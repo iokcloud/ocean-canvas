@@ -17,9 +17,9 @@
   resize();
   window.addEventListener('resize', resize);
 
-  function loadCreatures() {
+  async function loadCreatures() {
     const sort = document.getElementById('tank-sort')?.value || currentSort;
-    const data = getSortedCreatures(sort);
+    const data = await getSortedCreatures(sort);
     creatures = data.map(c => {
       const img = new Image();
       img.src = c.imageData;

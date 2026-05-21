@@ -1,0 +1,2 @@
+const OC_SUPABASE_URL = 'https://foassdtpstypxvarjzda.supabase.co';
+const OC_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvYXNzZHRwc3R5cHh2YXJqemRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNDY1NDQsImV4cCI6MjA5NDkyMjU0NH0.SrjZBCryA7NPyztVqqnHyTeENBSmZ7ESCeq9iLxMZRw';

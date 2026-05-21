@@ -43,6 +43,10 @@ ocean-canvas/
 | 开发规范 | CONTRIBUTING.md | ocean-canvas-docs/ |
 | 改部署 | deploy.md | ocean-canvas-docs/ |
 | 查历史决策 | decisions.md | ocean-canvas-docs/ |
+| 需求变更流程 | change-management.md | ocean-canvas-docs/ |
+| 查迭代规划 | roadmap.md | ocean-canvas-docs/ |
+| 提变更请求 | change-template.md | ocean-canvas-docs/ |
+| 查变更列表 | changes/ | ocean-canvas-docs/changes/ |
 
 ## 技术栈
 - 前端: 纯HTML/CSS/JS + Canvas 2D（无框架）

@@ -11,8 +11,14 @@
 
   function resize() {
     const wrapper = canvas.parentElement;
-    canvas.width = wrapper.clientWidth;
-    canvas.height = wrapper.clientHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = wrapper.clientWidth;
+    const h = wrapper.clientHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   resize();
   window.addEventListener('resize', resize);
@@ -22,6 +28,7 @@
     const data = await getSortedCreatures(sort);
     creatures = data.map(c => {
       const img = new Image();
+      img.onerror = () => { img._failed = true; };
       img.src = c.imageData;
       const typeInfo = CREATURE_TYPES[c.type] || CREATURE_TYPES.fish;
       const scale = 0.3 + Math.random() * 0.3;
@@ -174,7 +181,8 @@
 
   function drawCreatures(time) {
     creatures.forEach(c => {
-      if (!c.img.complete || c.img.naturalWidth === 0) return;
+      const imgFailed = c.img._failed;
+      if (!imgFailed && (!c.img.complete || c.img.naturalWidth === 0)) return;
 
       const typeInfo = CREATURE_TYPES[c.type] || CREATURE_TYPES.fish;
       c.wobblePhase += c.wobbleSpeed;
@@ -230,7 +238,15 @@
       ctx.shadowColor = c.glowColor;
       ctx.shadowBlur = 15 * c.glowIntensity;
 
-      ctx.drawImage(c.img, -w / 2, -h / 2, w, h);
+      if (imgFailed) {
+        const emoji = typeInfo.emoji || '🐟';
+        ctx.font = `${Math.max(16, w * 0.5)}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, 0, 0);
+      } else {
+        ctx.drawImage(c.img, -w / 2, -h / 2, w, h);
+      }
       ctx.restore();
     });
   }
@@ -326,6 +342,5 @@
   });
 
   initBubbles();
-  loadCreatures();
-  animate(0);
+  loadCreatures().then(() => animate(0));
 })();

@@ -105,6 +105,10 @@ async function getSortedCreatures(sort) {
   }
 
   const creatures = getCreatures();
+  if (creatures.length === 0) {
+    seedDefaultCreatures();
+    return getSortedCreatures(sort);
+  }
   switch (sort) {
     case 'popular':
     case 'score':

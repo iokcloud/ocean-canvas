@@ -18,7 +18,7 @@
       card.className = 'creature-card';
       card.innerHTML = `
         <div class="card-type">${c.emoji || '🐟'} ${CREATURE_TYPES[c.type]?.name || c.type}</div>
-        <img src="${c.imageData}" alt="深海生物" loading="lazy">
+        <img src="${c.imageData}" alt="深海生物" loading="lazy" onerror="this.style.display='none';this.parentElement.querySelector('.card-type').textContent+='(图片加载失败)'">
         <div class="card-score">⭐ ${c.score}</div>
         <div class="vote-controls">
           <button class="vote-btn upvote" data-id="${c.id}">👍</button>
@@ -68,5 +68,5 @@
     });
   });
 
-  renderGrid(await getSortedCreatures(currentSort));
+  getSortedCreatures(currentSort).then(data => renderGrid(data));
 })();

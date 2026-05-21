@@ -25,9 +25,24 @@
     seahorse: '💡 S形身体，头部朝上'
   };
 
-  ctx.fillStyle = '#0d1117';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  saveState();
+  function initCanvas() {
+    const wrapper = canvas.parentElement;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const displayW = Math.min(480, wrapper.clientWidth - 4);
+    const displayH = Math.round(displayW * 280 / 480);
+    canvas.width = displayW * dpr;
+    canvas.height = displayH * dpr;
+    canvas.style.width = displayW + 'px';
+    canvas.style.height = displayH + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, displayW, displayH);
+    history = [];
+    saveState();
+  }
+
+  initCanvas();
+  window.addEventListener('resize', () => { initCanvas(); });
 
   function saveState() {
     if (history.length >= MAX_HISTORY) history.shift();
@@ -151,9 +166,14 @@
   });
 
   function isCanvasBlank() {
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i] !== 13 || data[i+1] !== 17 || data[i+2] !== 23) return false;
+    const w = canvas.width, h = canvas.height;
+    const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 60));
+    const data = ctx.getImageData(0, 0, w, h).data;
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const i = (y * w + x) * 4;
+        if (data[i] !== 13 || data[i+1] !== 17 || data[i+2] !== 23) return false;
+      }
     }
     return true;
   }
@@ -191,11 +211,12 @@
   }
 
   function cropCanvasToContent(tCtx, w, h) {
+    const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 80));
     const data = tCtx.getImageData(0, 0, w, h).data;
     let minX = w, minY = h, maxX = 0, maxY = 0;
     let found = false;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
         const i = (y * w + x) * 4;
         if (data[i] < 240 || data[i+1] < 240 || data[i+2] < 240) {
           if (x < minX) minX = x;
@@ -207,6 +228,10 @@
       }
     }
     if (!found) return null;
+    minX = Math.max(0, minX - step);
+    minY = Math.max(0, minY - step);
+    maxX = Math.min(w - 1, maxX + step);
+    maxY = Math.min(h - 1, maxY + step);
     const cw = maxX - minX + 1;
     const ch = maxY - minY + 1;
     const result = document.createElement('canvas');
@@ -287,6 +312,7 @@
 
   document.getElementById('swim-btn').addEventListener('click', async function() {
     const btn = this;
+    if (btn.disabled) return;
     if (isCanvasBlank()) {
       showToast('画布还是空的，先画点什么吧 ✏️');
       return;
@@ -295,11 +321,15 @@
     btn.disabled = true;
     btn.textContent = 'AI识别中...';
 
+    const spinner = document.getElementById('ai-spinner');
+    if (spinner) spinner.style.display = 'inline-block';
+
     const result = await checkWithAI();
     const similarity = result ? result.similarity : 0.7;
     const isMatch = result ? result.isMatch : true;
     const creativity = result ? result.creativity : 50;
 
+    if (spinner) spinner.style.display = 'none';
     btn.disabled = false;
     btn.textContent = '放入深海 🌊';
 
@@ -478,7 +508,7 @@
             <button id="share-download" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">💾 保存</button>
           </div>
         </div>
-        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none;padding:6px;border:1px solid transparent;border-radius:6px;transition:all 0.2s">进入深海观赏 →</a>
+        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none;padding:6px;border:1px solid transparent;border-radius:6px;transition:all 0.2s;position:relative;z-index:10">进入深海观赏 →</a>
       </div>
     `;
 

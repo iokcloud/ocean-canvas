@@ -27,7 +27,7 @@ export async function onRequestPost(context) {
 
     console.info('[classify] env.AI available, calling vision model');
     const classification = await classifyWithAI(env, imageBuffer, creatureType);
-    const creativity = await scoreCreativity(env, imageBuffer, creatureType, true);
+    const creativity = await scoreCreativity(env, imageBuffer, creatureType);
 
     return jsonResponse({
       type: creatureType,
@@ -52,33 +52,30 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-const AI_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+const AI_MODEL = '@cf/anthropic/claude-opus-4.7';
 
 let licenseAgreed = false;
 
 async function ensureLicenseAccepted(env) {
   if (licenseAgreed) return;
-  try {
-    await env.AI.run(AI_MODEL, {
-      messages: [{ role: 'user', content: 'agree' }],
-      max_tokens: 1,
-    });
-    licenseAgreed = true;
-  } catch (e) {
-    licenseAgreed = true;
-  }
+  licenseAgreed = true;
 }
 
 async function classifyWithAI(env, imageBuffer, expectedType) {
   try {
-    await ensureLicenseAccepted(env);
+    const imageBase64 = arrayBufferToBase64(imageBuffer);
     const response = await env.AI.run(AI_MODEL, {
-      image: new Uint8Array(imageBuffer),
-      prompt: buildPrompt(expectedType),
-      max_tokens: 200,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
+          { type: 'text', text: buildPrompt(expectedType) }
+        ]
+      }],
+      max_tokens: 300,
     });
 
-    const text = response.description || response.response || '';
+    const text = response.content?.[0]?.text || response.response || '';
     return parseAIResponse(text, expectedType);
   } catch (error) {
     console.error('AI classification error:', error);
@@ -143,12 +140,15 @@ function fallbackClassification(expectedType) {
   };
 }
 
-async function scoreCreativity(env, imageBuffer, creatureType, licenseAccepted = false) {
+async function scoreCreativity(env, imageBuffer, creatureType) {
   try {
-    if (!licenseAccepted) await ensureLicenseAccepted(env);
+    const imageBase64 = arrayBufferToBase64(imageBuffer);
     const response = await env.AI.run(AI_MODEL, {
-      image: new Uint8Array(imageBuffer),
-      prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
+          { type: 'text', text: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
 
 SCORING GUIDE:
 - 80-100: Exceptional! Multiple colors, unique creative touches, expressive style, surprising details, good composition
@@ -161,11 +161,13 @@ Consider: color variety, unique details, expressiveness, composition, effort vis
 Do NOT give high scores for minimal or lazy drawings.
 
 Respond ONLY with JSON, no other text:
-{"score": 65, "highlights": "nice use of neon colors and a creative eye design"}`,
+{"score": 65, "highlights": "nice use of neon colors and a creative eye design"}` }
+        ]
+      }],
       max_tokens: 100,
     });
 
-    const text = response.description || response.response || '';
+    const text = response.content?.[0]?.text || response.response || '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -177,4 +179,13 @@ Respond ONLY with JSON, no other text:
   } catch {}
 
   return { score: 50, highlights: '' };
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }

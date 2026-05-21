@@ -275,9 +275,7 @@
     btn.disabled = false;
     btn.textContent = '放入深海 🌊';
 
-    setTimeout(() => {
-      window.location.href = 'ocean.html';
-    }, 1200);
+    showShareModal(tempCanvas, { type: currentType, similarity, creativity, isMatch });
   });
 
   function showLowScoreModal(similarity, creativity) {
@@ -328,9 +326,74 @@
     aiScore = null;
     updateScoreDisplay();
 
-    setTimeout(() => {
-      window.location.href = 'ocean.html';
-    }, 1200);
+    showShareModal(tempCanvas, { type: currentType, similarity: 0.4, creativity: 40, isMatch: false });
+  }
+
+  function showShareModal(creatureCanvas, data) {
+    const sim = Math.round((data.similarity || 0.7) * 100);
+    const cre = data.creativity || 50;
+    const typeInfo = CREATURE_TYPES[data.type] || CREATURE_TYPES.fish;
+    const passedText = data.isMatch ? '✅ 通过识别' : '⚠️ 待审核';
+
+    let modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(10px)';
+
+    modal.innerHTML = `
+      <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:16px;padding:28px;max-width:420px;text-align:center;box-shadow:0 0 50px rgba(0,229,255,0.15)">
+        <div style="font-size:2.5rem;margin-bottom:8px">${typeInfo.emoji}</div>
+        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-cyan);margin-bottom:16px">你的${typeInfo.name}已入深海！</div>
+        <div style="display:flex;justify-content:center;gap:20px;margin-bottom:20px">
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">相似度</div>
+            <div style="color:${sim>=60?'var(--neon-green)':'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
+          </div>
+          <div style="width:1px;background:var(--border-subtle)"></div>
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">创意分</div>
+            <div style="color:var(--neon-cyan);font-size:1.4rem;font-weight:700">${cre}</div>
+          </div>
+          <div style="width:1px;background:var(--border-subtle)"></div>
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">状态</div>
+            <div style="font-size:0.85rem">${passedText}</div>
+          </div>
+        </div>
+        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">分享你的作品，让更多人来深海 🌊</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+          <button id="share-native" style="padding:10px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:1px">📤 分享作品</button>
+          <div style="display:flex;gap:8px">
+            <button id="share-twitter" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">𝕏 Twitter</button>
+            <button id="share-reddit" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">Reddit</button>
+            <button id="share-download" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">💾 保存</button>
+          </div>
+        </div>
+        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none;padding:6px;border:1px solid transparent;border-radius:6px;transition:all 0.2s">进入深海观赏 →</a>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('#share-native').onclick = () => {
+      if (typeof ShareSystem !== 'undefined') ShareSystem.share(creatureCanvas, data);
+    };
+    modal.querySelector('#share-twitter').onclick = () => {
+      if (typeof ShareSystem !== 'undefined') ShareSystem.shareToTwitter(data);
+    };
+    modal.querySelector('#share-reddit').onclick = () => {
+      if (typeof ShareSystem !== 'undefined') ShareSystem.shareToReddit(data);
+    };
+    modal.querySelector('#share-download').onclick = async () => {
+      if (typeof ShareSystem !== 'undefined') {
+        const blob = await ShareSystem.generateShareImage(creatureCanvas, data);
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `ocean-canvas-${data.type}.png`; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+      }
+    };
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
   }
 
   document.addEventListener('keydown', function(e) {

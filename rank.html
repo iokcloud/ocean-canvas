@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>深海排行 - Ocean Canvas</title>
-  <meta name="description" content="为最好的深海生物作品投票">
+  <title>Rankings - Ocean Canvas</title>
+  <meta name="description" content="Vote for the best deep sea creature artworks">
   <link rel="stylesheet" href="src/css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
 </head>
@@ -14,26 +14,26 @@
   <nav class="nav">
     <a href="index.html" class="nav-logo">OCEAN CANVAS</a>
     <div class="nav-links">
-      <a href="index.html" class="nav-link">绘制</a>
-      <a href="ocean.html" class="nav-link">深海</a>
-      <a href="rank.html" class="nav-link active">排行</a>
+      <a href="index.html" class="nav-link" data-i18n="nav_draw">Draw</a>
+      <a href="ocean.html" class="nav-link" data-i18n="nav_ocean">Ocean</a>
+      <a href="rank.html" class="nav-link active" data-i18n="nav_rank">Rank</a>
     </div>
   </nav>
 
   <main class="main-content">
-    <h1 class="section-title">深海画廊</h1>
-    <p class="section-subtitle">为你最喜欢的深海生物投票</p>
+    <h1 class="section-title" data-i18n="rank_title">Deep Sea Gallery</h1>
+    <p class="section-subtitle" data-i18n="rank_subtitle">Vote for your favorite deep sea creatures</p>
 
     <div class="ranking-container">
       <div class="sort-controls">
-        <button class="sort-btn active" data-sort="hot">最热</button>
-        <button class="sort-btn" data-sort="score">最高分</button>
-        <button class="sort-btn" data-sort="recent">最新</button>
-        <button class="sort-btn" data-sort="random">随机</button>
+        <button class="sort-btn active" data-sort="hot" data-i18n="rank_sort_hot">Hot</button>
+        <button class="sort-btn" data-sort="score" data-i18n="rank_sort_score">Top Score</button>
+        <button class="sort-btn" data-sort="recent" data-i18n="rank_sort_recent">Recent</button>
+        <button class="sort-btn" data-sort="random" data-i18n="rank_sort_random">Random</button>
       </div>
 
-      <div id="loading" style="text-align:center;padding:40px;color:var(--text-secondary)">
-        正在从深海加载数据...
+      <div id="loading" style="text-align:center;padding:40px;color:var(--text-secondary)" data-i18n="rank_loading">
+        Loading data from the deep sea...
       </div>
 
       <div id="creature-grid" class="creature-grid" style="display:none"></div>
@@ -42,6 +42,8 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="src/js/i18n.js"></script>
+  <script>I18n.init();</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="src/js/supabase-config.js"></script>
   <script src="src/js/storage.js"></script>

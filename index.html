@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ocean Canvas - 深海画室</title>
-  <meta name="description" content="绘制你的深海生物，让它在全球深海中与其他作品一同游泳。创作、分享、投票。">
+  <title>Ocean Canvas - Deep Sea Studio</title>
+  <meta name="description" content="Draw your deep sea creature, let it swim with others in the global ocean. Create, share, vote.">
   <link rel="stylesheet" href="src/css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
 </head>
@@ -14,40 +14,40 @@
   <nav class="nav">
     <a href="index.html" class="nav-logo">OCEAN CANVAS</a>
     <div class="nav-links">
-      <a href="index.html" class="nav-link active">绘制</a>
-      <a href="ocean.html" class="nav-link">深海</a>
-      <a href="rank.html" class="nav-link">排行</a>
+      <a href="index.html" class="nav-link active" data-i18n="nav_draw">Draw</a>
+      <a href="ocean.html" class="nav-link" data-i18n="nav_ocean">Ocean</a>
+      <a href="rank.html" class="nav-link" data-i18n="nav_rank">Rank</a>
     </div>
   </nav>
 
   <main class="main-content">
-    <h1 class="section-title">绘制你的深海生物</h1>
-    <p class="section-subtitle">选择一种生物，在画布上创作，然后让它游入深海</p>
+    <h1 class="section-title" data-i18n="title_draw">Draw Your Deep Sea Creature</h1>
+    <p class="section-subtitle" data-i18n="subtitle_draw">Choose a creature, create on canvas, then let it swim into the deep sea</p>
 
     <div class="creature-selector" id="creature-selector">
       <button class="creature-btn active" data-type="fish">
-        <span class="creature-emoji">🐟</span> 鱼
+        <span class="creature-emoji">🐟</span> <span data-i18n="creature_fish">Fish</span>
       </button>
       <button class="creature-btn" data-type="jellyfish">
-        <span class="creature-emoji">🪼</span> 水母
+        <span class="creature-emoji">🪼</span> <span data-i18n="creature_jellyfish">Jellyfish</span>
       </button>
       <button class="creature-btn" data-type="octopus">
-        <span class="creature-emoji">🐙</span> 章鱼
+        <span class="creature-emoji">🐙</span> <span data-i18n="creature_octopus">Octopus</span>
       </button>
       <button class="creature-btn" data-type="turtle">
-        <span class="creature-emoji">🐢</span> 海龟
+        <span class="creature-emoji">🐢</span> <span data-i18n="creature_turtle">Turtle</span>
       </button>
       <button class="creature-btn" data-type="crab">
-        <span class="creature-emoji">🦀</span> 螃蟹
+        <span class="creature-emoji">🦀</span> <span data-i18n="creature_crab">Crab</span>
       </button>
       <button class="creature-btn" data-type="whale">
-        <span class="creature-emoji">🐋</span> 鲸鱼
+        <span class="creature-emoji">🐋</span> <span data-i18n="creature_whale">Whale</span>
       </button>
       <button class="creature-btn" data-type="shark">
-        <span class="creature-emoji">🦈</span> 鲨鱼
+        <span class="creature-emoji">🦈</span> <span data-i18n="creature_shark">Shark</span>
       </button>
       <button class="creature-btn" data-type="seahorse">
-        <span class="creature-emoji">🌊</span> 海马
+        <span class="creature-emoji">🌊</span> <span data-i18n="creature_seahorse">Seahorse</span>
       </button>
     </div>
 
@@ -58,52 +58,54 @@
 
       <div class="toolbar">
         <div class="toolbar-group">
-          <button class="tool-btn active" id="brush-tool" title="画笔">✏️</button>
-          <button class="tool-btn" id="eraser-tool" title="橡皮">🧹</button>
+          <button class="tool-btn active" id="brush-tool" data-i18n-title="tool_brush" title="Brush">✏️</button>
+          <button class="tool-btn" id="eraser-tool" data-i18n-title="tool_eraser" title="Eraser">🧹</button>
         </div>
         <div class="toolbar-separator"></div>
         <div class="toolbar-group">
           <div class="color-picker-wrapper">
-            <input type="color" id="color-picker" value="#00e5ff" title="颜色">
+            <input type="color" id="color-picker" value="#00e5ff" title="Color">
           </div>
-          <button class="tool-btn" data-color="#00e5ff" style="color:#00e5ff" title="青色">●</button>
-          <button class="tool-btn" data-color="#ff00ff" style="color:#ff00ff" title="品红">●</button>
-          <button class="tool-btn" data-color="#00ff88" style="color:#00ff88" title="绿色">●</button>
-          <button class="tool-btn" data-color="#ffd700" style="color:#ffd700" title="金色">●</button>
-          <button class="tool-btn" data-color="#ff6b6b" style="color:#ff6b6b" title="红色">●</button>
-          <button class="tool-btn" data-color="#ffffff" style="color:#ffffff" title="白色">●</button>
+          <button class="tool-btn" data-color="#00e5ff" style="color:#00e5ff" title="Cyan">●</button>
+          <button class="tool-btn" data-color="#ff00ff" style="color:#ff00ff" title="Magenta">●</button>
+          <button class="tool-btn" data-color="#00ff88" style="color:#00ff88" title="Green">●</button>
+          <button class="tool-btn" data-color="#ffd700" style="color:#ffd700" title="Gold">●</button>
+          <button class="tool-btn" data-color="#ff6b6b" style="color:#ff6b6b" title="Red">●</button>
+          <button class="tool-btn" data-color="#ffffff" style="color:#ffffff" title="White">●</button>
         </div>
         <div class="toolbar-separator"></div>
         <div class="toolbar-group">
-          <span style="color:var(--text-muted);font-size:0.7rem">粗细</span>
+          <span style="color:var(--text-muted);font-size:0.7rem" data-i18n="tool_size">Size</span>
           <input type="range" class="size-slider" id="brush-size" min="1" max="30" value="4">
           <span id="size-label" style="color:var(--text-secondary);font-size:0.7rem">4</span>
         </div>
         <div class="toolbar-separator"></div>
         <div class="toolbar-group">
-          <button class="tool-btn" id="undo-btn" title="撤销">↩</button>
-          <button class="tool-btn" id="clear-btn" title="清除">🗑</button>
+          <button class="tool-btn" id="undo-btn" data-i18n-title="tool_undo" title="Undo">↩</button>
+          <button class="tool-btn" id="clear-btn" data-i18n-title="tool_clear" title="Clear">🗑</button>
         </div>
       </div>
 
-      <p class="hint-text" id="hint-text">💡 面向右方绘制效果最佳 | 先AI评分通过，再放入深海</p>
+      <p class="hint-text" id="hint-text" data-i18n="hint_draw">💡 Drawing facing right works best | AI score first, then release to ocean</p>
       <div id="ai-score-display" style="text-align:center;margin-top:4px;font-size:0.8rem;min-height:20px;transition:all 0.3s ease"></div>
       <div id="ai-spinner" style="display:none;text-align:center;margin:6px 0">
         <span style="display:inline-block;width:20px;height:20px;border:2px solid var(--neon-cyan);border-top-color:transparent;border-radius:50%;animation:ocspin 0.8s linear infinite"></span>
-        <span style="color:var(--text-muted);font-size:0.75rem;margin-left:6px">AI分析中...</span>
+        <span style="color:var(--text-muted);font-size:0.75rem;margin-left:6px" data-i18n="ai_checking">AI analyzing...</span>
       </div>
 
       <div class="action-buttons">
-        <button class="btn-primary" id="ai-check-btn">AI评分 🔍</button>
-        <button class="btn-primary" id="swim-btn" disabled style="opacity:0.4;cursor:not-allowed">放入深海 🌊</button>
-        <a href="ocean.html" class="btn-secondary">进入深海观赏</a>
-        <a href="rank.html" class="btn-secondary">查看排行</a>
+        <button class="btn-primary" id="ai-check-btn" data-i18n="btn_ai_check">AI Score 🔍</button>
+        <button class="btn-primary" id="swim-btn" disabled style="opacity:0.4;cursor:not-allowed" data-i18n="btn_swim">Release to Ocean 🌊</button>
+        <a href="ocean.html" class="btn-secondary" data-i18n="btn_ocean">Enter Ocean</a>
+        <a href="rank.html" class="btn-secondary" data-i18n="btn_rank">View Rankings</a>
       </div>
     </div>
   </main>
 
   <div class="toast" id="toast"></div>
 
+  <script src="src/js/i18n.js"></script>
+  <script>I18n.init();</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="src/js/supabase-config.js"></script>
   <script src="src/js/storage.js"></script>

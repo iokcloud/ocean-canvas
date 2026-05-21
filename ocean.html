@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>深海观赏 - Ocean Canvas</title>
-  <meta name="description" content="观赏所有深海生物在海洋中自由游动">
+  <title>Ocean View - Ocean Canvas</title>
+  <meta name="description" content="Watch all deep sea creatures swim freely in the ocean">
   <link rel="stylesheet" href="src/css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
 </head>
@@ -12,9 +12,9 @@
   <nav class="nav">
     <a href="index.html" class="nav-logo">OCEAN CANVAS</a>
     <div class="nav-links">
-      <a href="index.html" class="nav-link">绘制</a>
-      <a href="ocean.html" class="nav-link active">深海</a>
-      <a href="rank.html" class="nav-link">排行</a>
+      <a href="index.html" class="nav-link" data-i18n="nav_draw">Draw</a>
+      <a href="ocean.html" class="nav-link active" data-i18n="nav_ocean">Ocean</a>
+      <a href="rank.html" class="nav-link" data-i18n="nav_rank">Rank</a>
     </div>
   </nav>
 
@@ -23,29 +23,31 @@
       <canvas id="ocean-canvas"></canvas>
 
       <div class="stats-overlay" id="stats-overlay">
-        生物数量: <span class="stat-value" id="creature-count">0</span><br>
-        深海深度: <span class="stat-value">3800m</span>
+        <span data-i18n="ocean_count_label">Creatures</span>: <span class="stat-value" id="creature-count">0</span><br>
+        <span data-i18n="ocean_depth">Depth</span>: <span class="stat-value">3800m</span>
       </div>
 
       <div class="tank-controls">
-        <label>排序:</label>
+        <label data-i18n="ocean_sort">Sort</label>:
         <select id="tank-sort">
-          <option value="recent">最新</option>
-          <option value="popular">最热</option>
-          <option value="random">随机</option>
+          <option value="recent" data-i18n="ocean_sort_recent">Recent</option>
+          <option value="popular" data-i18n="ocean_sort_popular">Popular</option>
+          <option value="random" data-i18n="ocean_sort_random">Random</option>
         </select>
-        <button id="refresh-tank">刷新</button>
-        <button id="feed-btn">投放食物 🍞</button>
+        <button id="refresh-tank" data-i18n="ocean_refresh">Refresh</button>
+        <button id="feed-btn" data-i18n="ocean_feed">Feed 🍞</button>
         <label>
-          <input type="checkbox" id="show-bubbles" checked> 气泡
+          <input type="checkbox" id="show-bubbles" checked> <span data-i18n="ocean_bubbles">Bubbles</span>
         </label>
-        <a href="index.html" style="color:var(--neon-cyan);font-size:0.75rem;text-decoration:none">去绘制</a>
+        <a href="index.html" style="color:var(--neon-cyan);font-size:0.75rem;text-decoration:none" data-i18n="ocean_go_draw">Go Draw</a>
       </div>
     </div>
   </main>
 
   <div class="toast" id="toast"></div>
 
+  <script src="src/js/i18n.js"></script>
+  <script>I18n.init();</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="src/js/supabase-config.js"></script>
   <script src="src/js/storage.js"></script>

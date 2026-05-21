@@ -14,16 +14,10 @@
 
   const AI_ENDPOINT = '/api/classify';
 
-  const typeHints = {
-    fish: '💡 面向右方绘制效果最佳',
-    jellyfish: '💡 从顶部画伞，向下延伸触手',
-    octopus: '💡 画圆头和向下延伸的触腕',
-    turtle: '💡 画椭圆壳和四肢',
-    crab: '💡 正面视角，画壳和两侧蟹钳',
-    whale: '💡 大体型，面向右方',
-    shark: '💡 流线型，面向右方',
-    seahorse: '💡 S形身体，头部朝上'
-  };
+  function getTypeHint(type) {
+    const key = 'type_hint_' + type;
+    return typeof I18n !== 'undefined' ? I18n.t(key) : '';
+  }
 
   let drawW = 480, drawH = 280;
 
@@ -179,7 +173,7 @@
       this.classList.add('active');
       currentType = this.dataset.type;
       const hint = document.getElementById('hint-text');
-      hint.textContent = typeHints[currentType] || '';
+      hint.textContent = getTypeHint(currentType);
     });
   });
 
@@ -348,12 +342,12 @@
     const btn = this;
     if (btn.disabled) return;
     if (isCanvasBlank()) {
-      showToast('画布还是空的，先画点什么吧 ✏️');
+      showToast(typeof I18n!=='undefined'?I18n.t('toast_blank'):'Canvas is blank, draw something first ✏️');
       return;
     }
 
     btn.disabled = true;
-    btn.textContent = 'AI识别中...';
+    btn.textContent = typeof I18n!=='undefined'?I18n.t('ai_checking'):'AI analyzing...';
     aiApproved = false;
     updateSwimBtn();
 
@@ -367,7 +361,7 @@
 
     if (spinner) spinner.style.display = 'none';
     btn.disabled = false;
-    btn.textContent = 'AI评分 🔍';
+    btn.textContent = typeof I18n!=='undefined'?I18n.t('btn_ai_check'):'AI Score 🔍';
 
     if (isMatch && similarity >= 0.5) {
       aiApproved = true;
@@ -379,7 +373,7 @@
 
   swimBtn.addEventListener('click', async function() {
     if (!aiApproved) {
-      showToast('请先通过AI评分 ✏️');
+      showToast(typeof I18n!=='undefined'?I18n.t('toast_need_score'):'Please pass AI score first ✏️');
       return;
     }
     const similarity = aiScore ? aiScore.similarity : 0.7;
@@ -403,7 +397,7 @@
 
     const statusColor = passed ? 'var(--neon-green)' : similarity >= 0.3 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
     const statusIcon = passed ? '✅' : similarity >= 0.3 ? '⚠️' : '❌';
-    const statusText = passed ? '评分通过' : similarity >= 0.3 ? '相似度偏低' : '未通过';
+    const statusText = passed ? (typeof I18n!=='undefined'?I18n.t('ai_score_pass'):'Score passed') : similarity >= 0.3 ? (typeof I18n!=='undefined'?I18n.t('ai_score_low'):'Low similarity') : (typeof I18n!=='undefined'?I18n.t('ai_score_fail'):'Not passed');
 
     panel.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-glow);border-radius:12px;padding:16px;margin-top:12px;text-align:center;transition:all 0.3s ease';
 
@@ -415,18 +409,18 @@
       </div>
       <div style="display:flex;justify-content:center;gap:24px;margin-bottom:10px">
         <div>
-          <div style="color:var(--text-muted);font-size:0.65rem">相似度</div>
+          <div style="color:var(--text-muted);font-size:0.65rem">${typeof I18n!=='undefined'?I18n.t('similarity'):'Similarity'}</div>
           <div style="color:${passed?'var(--neon-green)':'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
         </div>
         <div style="width:1px;background:var(--border-subtle)"></div>
         <div>
-          <div style="color:var(--text-muted);font-size:0.65rem">创意分</div>
+          <div style="color:var(--text-muted);font-size:0.65rem">${typeof I18n!=='undefined'?I18n.t('creativity'):'Creativity'}</div>
           <div style="color:var(--neon-cyan);font-size:1.4rem;font-weight:700">${creativity}</div>
         </div>
       </div>
       ${feedback ? `<div style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:8px">${feedback}</div>` : ''}
-      ${!passed && suggestedType && suggestedType !== currentType ? `<div style="color:var(--neon-magenta);font-size:0.75rem;margin-bottom:8px">💡 AI认为更像${CREATURE_TYPES[suggestedType]?.name || suggestedType}</div>` : ''}
-      ${passed ? `<div style="color:var(--neon-green);font-size:0.75rem">✓ 已解锁「放入深海」按钮</div>` : `<div style="color:var(--text-muted);font-size:0.75rem">继续修改后重新评分，或画新作品</div>`}
+      ${!passed && suggestedType && suggestedType !== currentType ? `<div style="color:var(--neon-magenta);font-size:0.75rem;margin-bottom:8px">${typeof I18n!=='undefined'?I18n.t('ai_suggest_type'):'💡 AI thinks it looks more like a'} ${CREATURE_TYPES[suggestedType]?.name || suggestedType}</div>` : ''}
+      ${passed ? `<div style="color:var(--neon-green);font-size:0.75rem">${typeof I18n!=='undefined'?I18n.t('ai_unlocked'):'✓ Unlocked'}</div>` : `<div style="color:var(--text-muted);font-size:0.75rem">${typeof I18n!=='undefined'?I18n.t('ai_modify'):'Modify and re-score'}</div>`}
     `;
   }
 
@@ -440,9 +434,9 @@
     const creature = addCreature(imageData, currentType, { similarity, creativity, isMatch });
 
     if (isMatch) {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} 已放入深海！`);
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_released'):'released to ocean!'}`);
     } else {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} 已提交（待审核）`);
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_pending'):'submitted (pending)'}`);
     }
 
     ctx.fillStyle = '#0d1117';
@@ -489,7 +483,7 @@
             <div style="font-size:0.85rem">${passedText}</div>
           </div>
         </div>
-        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">分享你的作品，让更多人来深海 🌊</div>
+        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">${typeof I18n!=='undefined'?I18n.t('share_title'):'Share your artwork 🌊'}</div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
           <button id="share-native" style="padding:10px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:1px">📤 分享作品</button>
           <div style="display:flex;gap:8px">

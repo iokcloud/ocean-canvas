@@ -25,24 +25,38 @@
     seahorse: '💡 S形身体，头部朝上'
   };
 
-  function initCanvas() {
+  let drawW = 480, drawH = 280;
+
+  function initCanvas(preserveContent) {
     const wrapper = canvas.parentElement;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const displayW = Math.min(480, wrapper.clientWidth - 4);
-    const displayH = Math.round(displayW * 280 / 480);
-    canvas.width = displayW * dpr;
-    canvas.height = displayH * dpr;
-    canvas.style.width = displayW + 'px';
-    canvas.style.height = displayH + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawW = Math.min(480, wrapper.clientWidth - 4);
+    drawH = Math.round(drawW * 280 / 480);
+
+    let savedImage = null;
+    if (preserveContent && canvas.width > 0 && canvas.height > 0) {
+      try { savedImage = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch(e) {}
+    }
+
+    canvas.width = drawW;
+    canvas.height = drawH;
+    canvas.style.width = drawW + 'px';
+    canvas.style.height = drawH + 'px';
+
     ctx.fillStyle = '#0d1117';
-    ctx.fillRect(0, 0, displayW, displayH);
-    history = [];
-    saveState();
+    ctx.fillRect(0, 0, drawW, drawH);
+
+    if (savedImage) {
+      try { ctx.putImageData(savedImage, 0, 0); } catch(e) {}
+    }
+
+    if (!preserveContent) {
+      history = [];
+      saveState();
+    }
   }
 
-  initCanvas();
-  window.addEventListener('resize', () => { initCanvas(); });
+  initCanvas(false);
+  window.addEventListener('resize', () => { initCanvas(true); });
 
   function saveState() {
     if (history.length >= MAX_HISTORY) history.shift();
@@ -54,7 +68,7 @@
     history.pop();
     const img = new Image();
     img.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, drawW, drawH);
       ctx.drawImage(img, 0, 0);
     };
     img.src = history[history.length - 1];
@@ -62,8 +76,8 @@
 
   function getCanvasPos(e) {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const scaleX = drawW / rect.width;
+    const scaleY = drawH / rect.height;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     return {
@@ -149,7 +163,7 @@
 
   document.getElementById('clear-btn').addEventListener('click', function() {
     ctx.fillStyle = '#0d1117';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, drawW, drawH);
     saveState();
     aiScore = null;
     updateScoreDisplay();
@@ -166,7 +180,7 @@
   });
 
   function isCanvasBlank() {
-    const w = canvas.width, h = canvas.height;
+    const w = drawW, h = drawH;
     const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 60));
     const data = ctx.getImageData(0, 0, w, h).data;
     for (let y = 0; y < h; y += step) {
@@ -180,14 +194,14 @@
 
   function prepareForAI() {
     const temp = document.createElement('canvas');
-    temp.width = canvas.width;
-    temp.height = canvas.height;
+    temp.width = drawW;
+    temp.height = drawH;
     const tCtx = temp.getContext('2d');
 
     tCtx.fillStyle = '#ffffff';
     tCtx.fillRect(0, 0, temp.width, temp.height);
 
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const imgData = ctx.getImageData(0, 0, drawW, drawH);
     const pixels = imgData.data;
     for (let i = 0; i < pixels.length; i += 4) {
       const r = pixels[i], g = pixels[i+1], b = pixels[i+2], a = pixels[i+3];
@@ -447,8 +461,8 @@
 
   function doSubmitCreature(similarity, isMatch, creativity) {
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
+    tempCanvas.width = drawW;
+    tempCanvas.height = drawH;
     tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
 
     const imageData = tempCanvas.toDataURL('image/png');
@@ -461,7 +475,7 @@
     }
 
     ctx.fillStyle = '#0d1117';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, drawW, drawH);
     history = [];
     saveState();
     aiScore = null;

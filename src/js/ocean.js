@@ -8,20 +8,21 @@
   let showBubbles = true;
   let currentSort = 'recent';
   let animFrameId;
+  let W = 0, H = 0;
 
   function resize() {
     const wrapper = canvas.parentElement;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = wrapper.clientWidth;
-    const h = wrapper.clientHeight;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = wrapper.clientWidth;
+    H = wrapper.clientHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.scale(dpr, dpr);
   }
   resize();
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', () => { resize(); initBubbles(); });
 
   async function loadCreatures() {
     const sort = document.getElementById('tank-sort')?.value || currentSort;
@@ -35,8 +36,8 @@
       return {
         ...c,
         img,
-        x: Math.random() * canvas.width,
-        y: 50 + Math.random() * (canvas.height - 150),
+        x: Math.random() * W,
+        y: 50 + Math.random() * (H - 150),
         vx: (0.3 + Math.random() * 0.7) * typeInfo.speed * (Math.random() > 0.5 ? 1 : -1),
         vy: 0,
         scale,
@@ -75,8 +76,8 @@
     bubbles = [];
     for (let i = 0; i < 30; i++) {
       bubbles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
+        x: Math.random() * W,
+        y: Math.random() * H,
         r: 2 + Math.random() * 6,
         speed: 0.3 + Math.random() * 0.8,
         wobble: Math.random() * Math.PI * 2
@@ -85,35 +86,35 @@
   }
 
   function drawBackground() {
-    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, '#020818');
     grad.addColorStop(0.3, '#051530');
     grad.addColorStop(0.6, '#0a2040');
     grad.addColorStop(1, '#0d1830');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, W, H);
 
     for (let i = 0; i < 5; i++) {
-      const y = canvas.height * 0.7 + i * 40;
+      const y = H * 0.7 + i * 40;
       ctx.fillStyle = `rgba(0, 229, 255, ${0.01 + i * 0.003})`;
-      ctx.fillRect(0, y, canvas.width, 2);
+      ctx.fillRect(0, y, W, 2);
     }
   }
 
   function drawLightRays(time) {
     ctx.save();
     for (let i = 0; i < 4; i++) {
-      const x = canvas.width * 0.15 + i * canvas.width * 0.25;
+      const x = W * 0.15 + i * W * 0.25;
       const sway = Math.sin(time * 0.0003 + i * 1.2) * 30;
-      const grad = ctx.createLinearGradient(x + sway, 0, x + sway + 60, canvas.height * 0.5);
+      const grad = ctx.createLinearGradient(x + sway, 0, x + sway + 60, H * 0.5);
       grad.addColorStop(0, 'rgba(0, 229, 255, 0.03)');
       grad.addColorStop(1, 'rgba(0, 229, 255, 0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.moveTo(x + sway - 20, 0);
       ctx.lineTo(x + sway + 40, 0);
-      ctx.lineTo(x + sway + 80 + Math.sin(time * 0.001) * 10, canvas.height * 0.5);
-      ctx.lineTo(x + sway - 40 + Math.sin(time * 0.001) * 10, canvas.height * 0.5);
+      ctx.lineTo(x + sway + 80 + Math.sin(time * 0.001) * 10, H * 0.5);
+      ctx.lineTo(x + sway - 40 + Math.sin(time * 0.001) * 10, H * 0.5);
       ctx.fill();
     }
     ctx.restore();
@@ -127,8 +128,8 @@
       b.wobble += 0.01;
 
       if (b.y < -20) {
-        b.y = canvas.height + 10;
-        b.x = Math.random() * canvas.width;
+        b.y = H + 10;
+        b.x = Math.random() * W;
       }
 
       ctx.beginPath();
@@ -147,18 +148,18 @@
   }
 
   function drawSeabed() {
-    const y = canvas.height - 40;
+    const y = H - 40;
     ctx.fillStyle = '#0a1520';
     ctx.beginPath();
-    ctx.moveTo(0, canvas.height);
-    for (let x = 0; x <= canvas.width; x += 20) {
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 20) {
       ctx.lineTo(x, y + Math.sin(x * 0.02) * 8 + Math.sin(x * 0.05) * 4);
     }
-    ctx.lineTo(canvas.width, canvas.height);
+    ctx.lineTo(W, H);
     ctx.fill();
 
     for (let i = 0; i < 8; i++) {
-      const sx = 50 + i * (canvas.width / 8) + Math.sin(i) * 30;
+      const sx = 50 + i * (W / 8) + Math.sin(i) * 30;
       const sy = y + Math.sin(sx * 0.02) * 8;
       drawSeaweed(sx, sy, time => 0);
     }
@@ -216,10 +217,10 @@
       const w = c.img.naturalWidth * c.scale;
       const h = c.img.naturalHeight * c.scale;
 
-      if (c.x > canvas.width + w) c.x = -w;
-      if (c.x < -w) c.x = canvas.width + w;
+      if (c.x > W + w) c.x = -w;
+      if (c.x < -w) c.x = W + w;
       if (c.y < 20) c.y = 20;
-      if (c.y > canvas.height - 80) c.y = canvas.height - 80;
+      if (c.y > H - 80) c.y = H - 80;
 
       ctx.save();
       ctx.translate(c.x, c.y);
@@ -294,8 +295,8 @@
 
   function dropFood(e) {
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const x = (e.clientX - rect.left) * (W / rect.width);
+    const y = (e.clientY - rect.top) * (H / rect.height);
     for (let i = 0; i < 5; i++) {
       foodPellets.push({
         x: x + (Math.random() - 0.5) * 20,
@@ -306,7 +307,7 @@
   }
 
   document.getElementById('feed-btn')?.addEventListener('click', function() {
-    const x = canvas.width * 0.3 + Math.random() * canvas.width * 0.4;
+    const x = W * 0.3 + Math.random() * W * 0.4;
     for (let i = 0; i < 8; i++) {
       foodPellets.push({
         x: x + (Math.random() - 0.5) * 60,

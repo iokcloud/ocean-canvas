@@ -52,13 +52,21 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+let licenseAgreed = false;
+
 async function ensureLicenseAccepted(env) {
+  if (licenseAgreed) return;
   try {
-    await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
-      prompt: 'agree',
+    const res = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+      messages: [{ role: 'user', content: 'agree' }],
       max_tokens: 1,
     });
-  } catch (e) {}
+    licenseAgreed = true;
+    console.info('[classify] License accepted for llama-3.2-11b-vision');
+  } catch (e) {
+    console.warn('[classify] License accept error (may already be accepted):', e.message);
+    licenseAgreed = true;
+  }
 }
 
 async function classifyWithAI(env, imageBuffer, expectedType) {

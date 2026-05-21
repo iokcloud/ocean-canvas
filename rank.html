@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>深海排行 - Ocean Canvas</title>
+  <meta name="description" content="为最好的深海生物作品投票">
+  <link rel="stylesheet" href="src/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
+</head>
+<body>
+  <div class="bubbles-bg" id="bubbles"></div>
+
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">OCEAN CANVAS</a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">绘制</a>
+      <a href="ocean.html" class="nav-link">深海</a>
+      <a href="rank.html" class="nav-link active">排行</a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <h1 class="section-title">深海画廊</h1>
+    <p class="section-subtitle">为你最喜欢的深海生物投票</p>
+
+    <div class="ranking-container">
+      <div class="sort-controls">
+        <button class="sort-btn active" data-sort="hot">最热</button>
+        <button class="sort-btn" data-sort="score">最高分</button>
+        <button class="sort-btn" data-sort="recent">最新</button>
+        <button class="sort-btn" data-sort="random">随机</button>
+      </div>
+
+      <div id="loading" style="text-align:center;padding:40px;color:var(--text-secondary)">
+        正在从深海加载数据...
+      </div>
+
+      <div id="creature-grid" class="creature-grid" style="display:none"></div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="src/js/storage.js"></script>
+  <script src="src/js/rank.js"></script>
+  <script src="src/js/bubbles.js"></script>
+</body>
+</html>

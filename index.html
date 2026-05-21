@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ocean Canvas - 深海画室</title>
+  <meta name="description" content="绘制你的深海生物，让它在全球深海中与其他作品一同游泳。创作、分享、投票。">
+  <link rel="stylesheet" href="src/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
+</head>
+<body>
+  <div class="bubbles-bg" id="bubbles"></div>
+
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">OCEAN CANVAS</a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link active">绘制</a>
+      <a href="ocean.html" class="nav-link">深海</a>
+      <a href="rank.html" class="nav-link">排行</a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <h1 class="section-title">绘制你的深海生物</h1>
+    <p class="section-subtitle">选择一种生物，在画布上创作，然后让它游入深海</p>
+
+    <div class="creature-selector" id="creature-selector">
+      <button class="creature-btn active" data-type="fish">
+        <span class="creature-emoji">🐟</span> 鱼
+      </button>
+      <button class="creature-btn" data-type="jellyfish">
+        <span class="creature-emoji">🪼</span> 水母
+      </button>
+      <button class="creature-btn" data-type="octopus">
+        <span class="creature-emoji">🐙</span> 章鱼
+      </button>
+      <button class="creature-btn" data-type="turtle">
+        <span class="creature-emoji">🐢</span> 海龟
+      </button>
+      <button class="creature-btn" data-type="crab">
+        <span class="creature-emoji">🦀</span> 螃蟹
+      </button>
+      <button class="creature-btn" data-type="whale">
+        <span class="creature-emoji">🐋</span> 鲸鱼
+      </button>
+      <button class="creature-btn" data-type="shark">
+        <span class="creature-emoji">🦈</span> 鲨鱼
+      </button>
+      <button class="creature-btn" data-type="seahorse">
+        <span class="creature-emoji">🌊</span> 海马
+      </button>
+    </div>
+
+    <div class="canvas-container">
+      <div class="draw-canvas-wrapper">
+        <canvas id="draw-canvas" width="480" height="280"></canvas>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <button class="tool-btn active" id="brush-tool" title="画笔">✏️</button>
+          <button class="tool-btn" id="eraser-tool" title="橡皮">🧹</button>
+        </div>
+        <div class="toolbar-separator"></div>
+        <div class="toolbar-group">
+          <div class="color-picker-wrapper">
+            <input type="color" id="color-picker" value="#00e5ff" title="颜色">
+          </div>
+          <button class="tool-btn" data-color="#00e5ff" style="color:#00e5ff" title="青色">●</button>
+          <button class="tool-btn" data-color="#ff00ff" style="color:#ff00ff" title="品红">●</button>
+          <button class="tool-btn" data-color="#00ff88" style="color:#00ff88" title="绿色">●</button>
+          <button class="tool-btn" data-color="#ffd700" style="color:#ffd700" title="金色">●</button>
+          <button class="tool-btn" data-color="#ff6b6b" style="color:#ff6b6b" title="红色">●</button>
+          <button class="tool-btn" data-color="#ffffff" style="color:#ffffff" title="白色">●</button>
+        </div>
+        <div class="toolbar-separator"></div>
+        <div class="toolbar-group">
+          <span style="color:var(--text-muted);font-size:0.7rem">粗细</span>
+          <input type="range" class="size-slider" id="brush-size" min="1" max="30" value="4">
+          <span id="size-label" style="color:var(--text-secondary);font-size:0.7rem">4</span>
+        </div>
+        <div class="toolbar-separator"></div>
+        <div class="toolbar-group">
+          <button class="tool-btn" id="undo-btn" title="撤销">↩</button>
+          <button class="tool-btn" id="clear-btn" title="清除">🗑</button>
+        </div>
+      </div>
+
+      <p class="hint-text" id="hint-text">💡 面向右方绘制效果最佳 | 水母建议向下绘制触手</p>
+
+      <div class="action-buttons">
+        <button class="btn-primary" id="swim-btn">放入深海 🌊</button>
+        <a href="ocean.html" class="btn-secondary">进入深海观赏</a>
+        <a href="rank.html" class="btn-secondary">查看排行</a>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="src/js/storage.js"></script>
+  <script src="src/js/draw.js"></script>
+  <script src="src/js/bubbles.js"></script>
+</body>
+</html>

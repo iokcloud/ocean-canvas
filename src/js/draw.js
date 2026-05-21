@@ -159,6 +159,11 @@
   }
 
   async function checkWithAI() {
+    if (!FEATURES.aiClassification) {
+      aiScore = { similarity: 0.75, isMatch: true, creativity: 50, feedback: 'AI识别已关闭' };
+      updateScoreDisplay();
+      return aiScore;
+    }
     if (isCanvasBlank() || isCheckingAI) return null;
 
     isCheckingAI = true;

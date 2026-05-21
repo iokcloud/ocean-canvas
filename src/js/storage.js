@@ -1,5 +1,13 @@
 const STORAGE_KEY = 'ocean_canvas_creatures';
 
+const FEATURES = {
+  aiClassification: localStorage.getItem('oc_ai_off') !== 'true',
+  devMode: localStorage.getItem('oc_dev') === 'true',
+  decorationShop: localStorage.getItem('oc_deco') !== 'off',
+  socialFeatures: localStorage.getItem('oc_social') !== 'off',
+  analytics: localStorage.getItem('oc_analytics_off') !== 'true',
+};
+
 const CREATURE_TYPES = {
   fish: { emoji: '🐟', name: '鱼', speed: 1.5, wobble: 0.8 },
   jellyfish: { emoji: '🪼', name: '水母', speed: 0.4, wobble: 1.2 },

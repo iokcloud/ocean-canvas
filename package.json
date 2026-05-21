@@ -1,0 +1,13 @@
+{
+  "name": "ocean-canvas",
+  "private": true,
+  "scripts": {
+    "dev": "npx wrangler pages dev . --port 8788 --compatibility-date 2024-01-01",
+    "preview": "npx wrangler pages deployment create . --project-name ocean-canvas",
+    "deploy:staging": "git checkout staging && git merge main && git push origin staging",
+    "deploy:prod": "git checkout main && git push origin main"
+  },
+  "devDependencies": {
+    "wrangler": "^3"
+  }
+}

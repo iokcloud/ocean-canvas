@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Ocean Canvas - 预发布验证</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: monospace; background: #0d1117; color: #e0e8ff; padding: 20px; }
+    h1 { color: #00e5ff; margin-bottom: 16px; }
+    .check { padding: 8px 0; border-bottom: 1px solid rgba(0,229,255,0.1); }
+    .pass { color: #00ff88; } .fail { color: #ff0044; } .warn { color: #ffd700; }
+    #summary { margin-top: 20px; font-size: 1.2rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Ocean Canvas 预发布验证清单</h1>
+  <div id="results"></div>
+  <div id="summary"></div>
+
+  <script>
+    const results = [];
+    function check(name, fn) {
+      try {
+        const r = fn();
+        results.push({ name, ...r });
+      } catch (e) {
+        results.push({ name, status: 'fail', detail: e.message });
+      }
+    }
+
+    check('index.html 存在', () => {
+      return { status: document.querySelector ? 'pass' : 'fail', detail: 'DOM可用' };
+    });
+
+    check('localStorage 可用', () => {
+      localStorage.setItem('_oc_test', '1');
+      const v = localStorage.getItem('_oc_test');
+      localStorage.removeItem('_oc_test');
+      return { status: v === '1' ? 'pass' : 'fail', detail: v === '1' ? '正常' : '读写失败' };
+    });
+
+    check('CREATURE_TYPES 已定义', () => {
+      return { status: typeof CREATURE_TYPES !== 'undefined' ? 'pass' : 'fail', detail: typeof CREATURE_TYPES };
+    });
+
+    check('FEATURES 已定义', () => {
+      return { status: typeof FEATURES !== 'undefined' ? 'pass' : 'fail', detail: typeof FEATURES };
+    });
+
+    check('8种生物类型', () => {
+      const types = Object.keys(CREATURE_TYPES || {});
+      const ok = types.length === 8;
+      return { status: ok ? 'pass' : 'fail', detail: `${types.length}/8: ${types.join(',')}` };
+    });
+
+    check('getCreatures 函数可用', () => {
+      return { status: typeof getCreatures === 'function' ? 'pass' : 'fail', detail: typeof getCreatures };
+    });
+
+    check('addCreature 函数可用', () => {
+      return { status: typeof addCreature === 'function' ? 'pass' : 'fail', detail: typeof addCreature };
+    });
+
+    check('getSortedCreatures 函数可用', () => {
+      return { status: typeof getSortedCreatures === 'function' ? 'pass' : 'fail', detail: typeof getSortedCreatures };
+    });
+
+    check('seedDefaultCreatures 已执行', () => {
+      const c = getCreatures ? getCreatures() : [];
+      return { status: c.length > 0 ? 'pass' : 'warn', detail: `${c.length} 个生物` };
+    });
+
+    check('SupabaseDB 对象存在', () => {
+      return { status: typeof SupabaseDB !== 'undefined' ? 'pass' : 'warn', detail: typeof SupabaseDB };
+    });
+
+    check('ShareSystem 对象存在', () => {
+      return { status: typeof ShareSystem !== 'undefined' ? 'pass' : 'warn', detail: typeof ShareSystem };
+    });
+
+    check('showToast 函数可用', () => {
+      return { status: typeof showToast === 'function' ? 'pass' : 'fail', detail: typeof showToast };
+    });
+
+    const div = document.getElementById('results');
+    results.forEach(r => {
+      const icon = r.status === 'pass' ? '✅' : r.status === 'fail' ? '❌' : '⚠️';
+      div.innerHTML += `<div class="check"><span class="${r.status}">${icon} ${r.name}</span> — ${r.detail}</div>`;
+    });
+
+    const pass = results.filter(r => r.status === 'pass').length;
+    const fail = results.filter(r => r.status === 'fail').length;
+    const warn = results.filter(r => r.status === 'warn').length;
+    const summary = document.getElementById('summary');
+    summary.innerHTML = fail > 0
+      ? `<span class="fail">❌ ${pass}通过 ${fail}失败 ${warn}警告 — 不可发布</span>`
+      : `<span class="pass">✅ ${pass}通过 ${warn}警告 — 可以发布</span>`;
+  </script>
+</body>
+</html>

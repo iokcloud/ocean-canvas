@@ -10,7 +10,7 @@ Ocean Canvas 深海画室 — 手绘深海生物 + AI识别评分 + 共享深海
 - **线上地址**: https://ocean.gameschats.com
 - **代码仓库**: https://github.com/iokcloud/ocean-canvas
 - **文档仓库**: ../ocean-canvas-docs/
-- **部署方式**: git push origin main → Cloudflare Pages自动部署
+- **部署方式**: 本地验证→PR到staging→预览确认→合并main→Cloudflare自动部署
 
 ## 项目结构
 ```
@@ -73,10 +73,17 @@ FEATURES.analytics         // oc_analytics_off=true关闭
 
 ## 开发命令
 ```bash
-# 本地: 直接打开index.html 或 npx serve .
-# 部署: git push origin main
-# Worker: npx wrangler deploy
+# 本地验证（支持AI Functions）
+npm install && npm run dev       # http://localhost:8788
+
+# 冒烟测试
+# 打开 http://localhost:8788/smoketest.html
+
+# 发布流程
+git push -u origin feat/xxx     # 推功能分支
+gh pr create --base staging     # PR→预览URL自动生成
+# 预览确认后 → merge staging → merge main → 自动上线
 ```
 
 ## 部署检查
-1. 本地三页测试 → 2. git push → 3. 等CF部署(30秒) → 4. 验证ocean.gameschats.com
+1. 本地`npm run dev` + smoketest通过 → 2. PR到staging → 3. 预览URL验证 → 4. 合并main → 5. 验证ocean.gameschats.com

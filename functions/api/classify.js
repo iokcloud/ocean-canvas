@@ -32,7 +32,7 @@ export async function onRequestPost(context) {
     return jsonResponse({
       type: creatureType,
       similarity: classification.similarity,
-      isMatch: classification.similarity >= 0.6,
+      isMatch: classification.similarity >= 0.5,
       creativity: creativity.score,
       feedback: classification.feedback,
       suggestedType: classification.suggestedType,
@@ -100,16 +100,18 @@ function buildPrompt(expectedType) {
 
   const description = typeDescriptions[expectedType] || 'a sea creature of some kind';
 
-  return `You are analyzing a hand-drawn sketch on a white background. This is a casual drawing game - be ENCOURAGING and GENEROUS with similarity scores.
+  return `You are analyzing a hand-drawn sketch on a white background. This is a drawing game with STRICT quality standards.
 
 The user was asked to draw: ${description}
 
-IMPORTANT SCORING GUIDE:
-- If you can recognize the intended creature even partially: similarity 0.7-0.95
-- If it has 1-2 recognizable features (like a fin, eye, tentacle): similarity 0.5-0.7
-- If it's just a rough shape that could be the creature: similarity 0.3-0.5
-- If it looks nothing like the creature: similarity 0.1-0.3
-- Give specific feedback about what features you see and what could be improved
+SCORING GUIDE (be STRICT and accurate):
+- Recognizable creature with good detail (eyes, fins, scales, texture): similarity 0.7-0.95
+- Has 2-3 recognizable features but lacking detail: similarity 0.5-0.7
+- Rough shape that could be the creature but missing key features: similarity 0.3-0.5
+- Barely resembles the creature, mostly abstract lines: similarity 0.15-0.3
+- Random scribbles or nothing recognizable: similarity 0.0-0.15
+- Give specific, honest feedback about what's missing and how to improve
+- Do NOT give high scores for minimal effort
 
 Also identify if it more closely resembles a different sea creature.
 
@@ -146,16 +148,17 @@ async function scoreCreativity(env, imageBuffer, creatureType, licenseAccepted =
     if (!licenseAccepted) await ensureLicenseAccepted(env);
     const response = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
       image: new Uint8Array(imageBuffer),
-      prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background.
+      prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
 
-SCORING GUIDE (be generous - this is a casual drawing game):
-- 80-100: Outstanding! Has unique creative touches, multiple colors, expressive style, or surprising details
-- 60-79: Creative! Has some nice details, good use of color, or personality beyond the basics
-- 40-59: Solid effort! Has recognizable features and some thought put into it
-- 20-39: Basic but valid. A simple attempt with minimal detail
-- 0-19: Very minimal effort or nearly blank
+SCORING GUIDE:
+- 80-100: Exceptional! Multiple colors, unique creative touches, expressive style, surprising details, good composition
+- 60-79: Creative! Has nice details, good use of color, personality beyond basics, some original elements
+- 40-59: Solid effort. Has recognizable features and some thought, but limited creativity or detail
+- 20-39: Basic. Simple attempt with minimal detail, single color, little effort visible
+- 0-19: Very minimal effort, nearly blank, or just random lines
 
 Consider: color variety, unique details, expressiveness, composition, effort visible.
+Do NOT give high scores for minimal or lazy drawings.
 
 Respond ONLY with JSON, no other text:
 {"score": 65, "highlights": "nice use of neon colors and a creative eye design"}`,

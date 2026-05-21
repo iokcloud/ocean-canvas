@@ -22,6 +22,13 @@ var OceanAuth = {
     nav.appendChild(btn);
   },
 
+  _isAnonUser(user) {
+    if (!user) return true;
+    if (user.is_anonymous === true) return true;
+    if (user.identities && user.identities.length === 0) return true;
+    return false;
+  },
+
   async checkSession() {
     if (typeof SupabaseDB === 'undefined' || !SupabaseDB.enabled) {
       this.updateUI(null);
@@ -29,14 +36,15 @@ var OceanAuth = {
     }
     try {
       const { data: { session } } = await SupabaseDB.client.auth.getSession();
-      if (session) {
+      if (session && session.user) {
         this.user = session.user;
-        this.isAnonymous = session.user.is_anonymous;
+        this.isAnonymous = this._isAnonUser(session.user);
         this.updateUI(session.user);
       } else {
-        await this.ensureAnonymous();
+        this.updateUI(null);
       }
     } catch (e) {
+      console.warn('[OceanAuth] checkSession error:', e);
       this.updateUI(null);
     }
   },
@@ -45,20 +53,26 @@ var OceanAuth = {
     if (!SupabaseDB.enabled) return;
     try {
       const { data, error } = await SupabaseDB.client.auth.signInAnonymously();
-      if (!error && data.user) {
+      if (error) {
+        console.warn('[OceanAuth] Anonymous login not available:', error.message);
+        return;
+      }
+      if (data.user) {
         this.user = data.user;
         this.isAnonymous = true;
         this.updateUI(data.user);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[OceanAuth] ensureAnonymous error:', e);
+    }
   },
 
   listenAuthChange() {
     if (typeof SupabaseDB === 'undefined' || !SupabaseDB.enabled) return;
     SupabaseDB.client.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (session && session.user) {
         this.user = session.user;
-        this.isAnonymous = session.user.is_anonymous;
+        this.isAnonymous = this._isAnonUser(session.user);
         this.updateUI(session.user);
       } else {
         this.user = null;
@@ -72,8 +86,8 @@ var OceanAuth = {
     const btn = document.getElementById('auth-btn');
     if (!btn) return;
 
-    if (user && !user.is_anonymous) {
-      const name = user.user_metadata?.full_name || user.email?.split('@')[0] || '用户';
+    if (user && !this._isAnonUser(user)) {
+      const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '用户';
       const avatar = user.user_metadata?.avatar_url;
       btn.innerHTML = avatar
         ? `<img src="${avatar}" style="width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:4px">${name}`
@@ -91,7 +105,7 @@ var OceanAuth = {
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(10px)';
 
     modal.innerHTML = `
-      <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:16px;padding:32px;max-width:360px;width:90%;text-align:center;box-shadow:0 0 60px rgba(0,229,255,0.15)">
+      <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:16px;padding:32px;max-width:360px;width:90%;text-align:center;box-shadow:0 0 60px rgba(0,229,255,0.15);position:relative">
         <div style="font-size:1.8rem;margin-bottom:4px">🌊</div>
         <div style="font-family:Orbitron,monospace;font-size:1rem;color:var(--neon-cyan);margin-bottom:4px">登录 Ocean Canvas</div>
         <div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:24px">登录后跨设备同步你的深海作品</div>
@@ -136,7 +150,7 @@ var OceanAuth = {
     }
     const { error } = await SupabaseDB.client.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: window.location.origin + window.location.pathname }
+      options: { redirectTo: window.location.origin + '/' }
     });
     if (error) {
       const errEl = document.getElementById('auth-error');
@@ -174,7 +188,7 @@ var OceanAuth = {
 
   showUserMenu() {
     if (!this.user) return;
-    const name = this.user.user_metadata?.full_name || this.user.email?.split('@')[0] || '用户';
+    const name = this.user.user_metadata?.full_name || this.user.user_metadata?.name || this.user.email?.split('@')[0] || '用户';
 
     let menu = document.createElement('div');
     menu.id = 'user-menu';
@@ -195,7 +209,6 @@ var OceanAuth = {
       this.updateUI(null);
       menu.remove();
       showToast('已退出登录');
-      await this.ensureAnonymous();
     };
 
     const close = (e) => {
@@ -208,6 +221,6 @@ var OceanAuth = {
   },
 
   isLoggedIn() {
-    return this.user && !this.user.is_anonymous;
+    return this.user && !this._isAnonUser(this.user);
   }
 };

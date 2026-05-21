@@ -13,17 +13,19 @@ export async function onRequestPost(context) {
     const imageBuffer = await imageFile.arrayBuffer();
 
     if (!env.AI) {
+      console.error('[classify] env.AI is undefined - AI binding not configured');
       const fallback = fallbackClassification(creatureType);
       return jsonResponse({
         type: creatureType,
         similarity: fallback.similarity,
         isMatch: fallback.similarity >= 0.6,
         creativity: 50,
-        feedback: fallback.feedback,
+        feedback: '[No AI binding] ' + fallback.feedback,
         suggestedType: creatureType,
       });
     }
 
+    console.info('[classify] env.AI available, calling vision model');
     const classification = await classifyWithAI(env, imageBuffer, creatureType);
     const creativity = await scoreCreativity(env, imageBuffer, creatureType);
 
@@ -62,7 +64,7 @@ async function classifyWithAI(env, imageBuffer, expectedType) {
     return parseAIResponse(text, expectedType);
   } catch (error) {
     console.error('AI classification error:', error);
-    return fallbackClassification(expectedType);
+    return { ...fallbackClassification(expectedType), feedback: '[AI error: ' + error.message + '] ' + fallbackClassification(expectedType).feedback };
   }
 }
 

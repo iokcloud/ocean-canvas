@@ -363,7 +363,7 @@
     btn.disabled = false;
     btn.textContent = typeof I18n!=='undefined'?I18n.t('btn_ai_check'):'AI Score 🔍';
 
-    if (isMatch && similarity >= 0.5) {
+    if (isMatch && similarity >= 0.6) {
       aiApproved = true;
       updateSwimBtn();
     }
@@ -395,9 +395,9 @@
       hint.parentNode.insertBefore(panel, hint.nextSibling);
     }
 
-    const statusColor = passed ? 'var(--neon-green)' : similarity >= 0.3 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
-    const statusIcon = passed ? '✅' : similarity >= 0.3 ? '⚠️' : '❌';
-    const statusText = passed ? (typeof I18n!=='undefined'?I18n.t('ai_score_pass'):'Score passed') : similarity >= 0.3 ? (typeof I18n!=='undefined'?I18n.t('ai_score_low'):'Low similarity') : (typeof I18n!=='undefined'?I18n.t('ai_score_fail'):'Not passed');
+    const statusColor = passed ? 'var(--neon-green)' : similarity >= 0.4 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
+    const statusIcon = passed ? '✅' : similarity >= 0.4 ? '⚠️' : '❌';
+    const statusText = passed ? (typeof I18n!=='undefined'?I18n.t('ai_score_pass'):'Score passed') : similarity >= 0.4 ? (typeof I18n!=='undefined'?I18n.t('ai_score_low'):'Low similarity') : (typeof I18n!=='undefined'?I18n.t('ai_score_fail'):'Not passed');
 
     panel.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-glow);border-radius:12px;padding:16px;margin-top:12px;text-align:center;transition:all 0.3s ease';
 

@@ -287,6 +287,11 @@
 
   document.getElementById('swim-btn').addEventListener('click', async function() {
     const btn = this;
+    if (isCanvasBlank()) {
+      showToast('画布还是空的，先画点什么吧 ✏️');
+      return;
+    }
+
     btn.disabled = true;
     btn.textContent = 'AI识别中...';
 
@@ -295,83 +300,135 @@
     const isMatch = result ? result.isMatch : true;
     const creativity = result ? result.creativity : 50;
 
-    if (!isMatch && similarity < 0.3) {
-      btn.disabled = false;
-      btn.textContent = '放入深海 🌊';
-      showLowScoreModal(similarity, creativity);
-      return;
-    }
-
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(canvas, 0, 0);
-
-    const imageData = tempCanvas.toDataURL('image/png');
-    const creature = addCreature(imageData, currentType);
-    creature.aiSimilarity = similarity;
-    creature.aiCreativity = creativity;
-
-    if (isMatch) {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} 通过识别！相似度${Math.round(similarity*100)}%`);
-    } else {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} 已提交审核（相似度${Math.round(similarity*100)}%）`);
-    }
-
-    ctx.fillStyle = '#0d1117';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    history = [];
-    saveState();
-    aiScore = null;
-    updateScoreDisplay();
-
     btn.disabled = false;
     btn.textContent = '放入深海 🌊';
 
-    showShareModal(tempCanvas, { type: currentType, similarity, creativity, isMatch });
+    showResultModal(similarity, isMatch, creativity, result?.feedback || '', result?.suggestedType);
   });
 
-  function showLowScoreModal(similarity, creativity) {
-    let modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(8px)';
-
+  function showResultModal(similarity, isMatch, creativity, feedback, suggestedType) {
     const sim = Math.round(similarity * 100);
+    const typeInfo = CREATURE_TYPES[currentType] || CREATURE_TYPES.fish;
+
+    let modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(10px)';
+
+    let statusSection = '';
+    if (isMatch) {
+      statusSection = `
+        <div style="font-size:2.5rem;margin-bottom:8px">🎉</div>
+        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-green);margin-bottom:12px">通过识别！</div>
+        <div style="display:flex;justify-content:center;gap:20px;margin-bottom:16px">
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">相似度</div>
+            <div style="color:var(--neon-green);font-size:1.6rem;font-weight:700">${sim}%</div>
+          </div>
+          <div style="width:1px;background:var(--border-subtle)"></div>
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">创意分</div>
+            <div style="color:var(--neon-cyan);font-size:1.6rem;font-weight:700">${creativity}</div>
+          </div>
+        </div>
+        ${feedback ? `<div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px;padding:0 10px">${feedback}</div>` : ''}
+        <button id="modal-submit" style="width:100%;padding:12px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.9rem;letter-spacing:1px;margin-bottom:10px">放入深海 🌊</button>
+      `;
+    } else if (similarity >= 0.3) {
+      statusSection = `
+        <div style="font-size:2.5rem;margin-bottom:8px">🤔</div>
+        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-gold);margin-bottom:12px">相似度偏低</div>
+        <div style="display:flex;justify-content:center;gap:20px;margin-bottom:16px">
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">相似度</div>
+            <div style="color:var(--neon-gold);font-size:1.6rem;font-weight:700">${sim}%</div>
+          </div>
+          <div style="width:1px;background:var(--border-subtle)"></div>
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">创意分</div>
+            <div style="color:var(--neon-cyan);font-size:1.6rem;font-weight:700">${creativity}</div>
+          </div>
+        </div>
+        ${feedback ? `<div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:12px;padding:0 10px">${feedback}</div>` : ''}
+        ${suggestedType && suggestedType !== currentType ? `<div style="color:var(--neon-magenta);font-size:0.8rem;margin-bottom:14px">💡 AI认为这更像一只${CREATURE_TYPES[suggestedType]?.name || suggestedType}？</div>` : ''}
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button id="modal-retry" style="flex:1;padding:10px;border:1px solid var(--neon-cyan);border-radius:8px;background:transparent;color:var(--neon-cyan);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:0.8rem">继续画</button>
+          <button id="modal-submit" style="flex:1;padding:10px;border:1px solid var(--neon-gold);border-radius:8px;background:transparent;color:var(--neon-gold);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:0.8rem">仍然放入</button>
+        </div>
+      `;
+    } else {
+      statusSection = `
+        <div style="font-size:2.5rem;margin-bottom:8px">❌</div>
+        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-magenta);margin-bottom:12px">AI无法识别</div>
+        <div style="display:flex;justify-content:center;gap:20px;margin-bottom:16px">
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">相似度</div>
+            <div style="color:var(--neon-magenta);font-size:1.6rem;font-weight:700">${sim}%</div>
+          </div>
+          <div style="width:1px;background:var(--border-subtle)"></div>
+          <div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">创意分</div>
+            <div style="color:var(--neon-cyan);font-size:1.6rem;font-weight:700">${creativity}</div>
+          </div>
+        </div>
+        ${feedback ? `<div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:12px;padding:0 10px">${feedback}</div>` : ''}
+        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:14px">💡 试试：画更明显的轮廓、加眼睛/鳍等特征</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button id="modal-retry" style="flex:2;padding:10px;border:1px solid var(--neon-cyan);border-radius:8px;background:transparent;color:var(--neon-cyan);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:0.8rem">继续画</button>
+          <button id="modal-force" style="flex:1;padding:10px;border:1px solid var(--neon-magenta);border-radius:8px;background:transparent;color:var(--neon-magenta);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:0.8rem">强制放入</button>
+        </div>
+      `;
+    }
+
     modal.innerHTML = `
-      <div style="background:var(--bg-card);border:1px solid var(--neon-magenta);border-radius:16px;padding:30px;max-width:400px;text-align:center;box-shadow:0 0 40px rgba(255,0,255,0.2)">
-        <div style="font-size:2rem;margin-bottom:12px">🤔</div>
-        <div style="font-family:Orbitron,monospace;font-size:1.2rem;color:var(--neon-magenta);margin-bottom:12px">相似度较低</div>
-        <div style="color:var(--text-secondary);font-size:0.85rem;line-height:1.6;margin-bottom:8px">
-          AI识别相似度仅 <strong style="color:var(--neon-magenta)">${sim}%</strong>，低于60%通过线
-        </div>
-        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:20px">
-          💡 试试：画更明显的轮廓、加上眼睛/鳍等特征
-        </div>
-        <div style="display:flex;gap:10px;justify-content:center">
-          <button id="modal-retry" style="padding:8px 20px;border:1px solid var(--neon-cyan);border-radius:8px;background:transparent;color:var(--neon-cyan);cursor:pointer;font-family:JetBrains Mono,monospace">继续画</button>
-          <button id="modal-force" style="padding:8px 20px;border:1px solid var(--neon-magenta);border-radius:8px;background:transparent;color:var(--neon-magenta);cursor:pointer;font-family:JetBrains Mono,monospace">强制提交</button>
-        </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:16px;padding:28px;max-width:400px;text-align:center;box-shadow:0 0 50px rgba(0,229,255,0.15)">
+        <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:6px">AI识别结果</div>
+        <div style="color:var(--text-primary);font-size:1rem;margin-bottom:16px">${typeInfo.emoji} ${typeInfo.name}</div>
+        ${statusSection}
+        <button id="modal-close" style="width:100%;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:transparent;color:var(--text-muted);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:0.75rem">关闭</button>
       </div>
     `;
 
     document.body.appendChild(modal);
 
-    modal.querySelector('#modal-retry').onclick = () => modal.remove();
-    modal.querySelector('#modal-force').onclick = () => {
-      modal.remove();
-      forceSubmit();
-    };
+    const submitBtn = modal.querySelector('#modal-submit');
+    const retryBtn = modal.querySelector('#modal-retry');
+    const forceBtn = modal.querySelector('#modal-force');
+    const closeBtn = modal.querySelector('#modal-close');
+
+    if (submitBtn) {
+      submitBtn.onclick = () => {
+        modal.remove();
+        doSubmitCreature(similarity, isMatch, creativity);
+      };
+    }
+    if (retryBtn) {
+      retryBtn.onclick = () => modal.remove();
+    }
+    if (forceBtn) {
+      forceBtn.onclick = () => {
+        modal.remove();
+        doSubmitCreature(similarity, false, creativity);
+      };
+    }
+    if (closeBtn) {
+      closeBtn.onclick = () => modal.remove();
+    }
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
   }
 
-  function forceSubmit() {
+  function doSubmitCreature(similarity, isMatch, creativity) {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
     tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
+
     const imageData = tempCanvas.toDataURL('image/png');
-    addCreature(imageData, currentType);
-    showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} 已强制提交（待审核）`);
+    const creature = addCreature(imageData, currentType, { similarity, creativity, isMatch });
+
+    if (isMatch) {
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} 已放入深海！`);
+    } else {
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} 已提交（待审核）`);
+    }
 
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -380,7 +437,7 @@
     aiScore = null;
     updateScoreDisplay();
 
-    showShareModal(tempCanvas, { type: currentType, similarity: 0.4, creativity: 40, isMatch: false });
+    showShareModal(tempCanvas, { type: currentType, similarity, creativity, isMatch });
   }
 
   function showShareModal(creatureCanvas, data) {

@@ -315,7 +315,7 @@
         life: 300 + Math.random() * 100
       });
     }
-    showToast('食物已投入深海！');
+    showToast(typeof I18n!=='undefined'?I18n.t('toast_food'):'Food dropped into the deep sea!');
   });
 
   document.getElementById('tank-sort')?.addEventListener('change', function() {
@@ -325,7 +325,7 @@
 
   document.getElementById('refresh-tank')?.addEventListener('click', function() {
     loadCreatures();
-    showToast('深海已刷新 🌊');
+    showToast(typeof I18n!=='undefined'?I18n.t('toast_refresh'):'Ocean refreshed 🌊');
   });
 
   document.getElementById('show-bubbles')?.addEventListener('change', function() {

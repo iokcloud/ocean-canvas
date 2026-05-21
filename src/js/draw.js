@@ -433,6 +433,16 @@
     const imageData = tempCanvas.toDataURL('image/png');
     const creature = addCreature(imageData, currentType, { similarity, creativity, isMatch });
 
+    if (typeof DailyChallenge !== 'undefined' && DailyChallenge.checkCompletion(currentType)) {
+      const locale = typeof I18n !== 'undefined' ? I18n.locale : 'en';
+      showToast(locale === 'zh' ? '🎉 每日挑战完成！双倍经验！' : '🎉 Daily challenge complete! Bonus XP!');
+    }
+
+    if (typeof AchievementSystem !== 'undefined') {
+      AchievementSystem.addXP(Math.round(similarity * 50 + creativity));
+      setTimeout(() => AchievementSystem.checkBadges(AchievementSystem.getStats()), 500);
+    }
+
     if (isMatch) {
       showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_released'):'released to ocean!'}`);
     } else {

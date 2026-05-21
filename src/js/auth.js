@@ -145,7 +145,7 @@ var OceanAuth = {
 
   async loginWithOAuth(provider) {
     if (!SupabaseDB.enabled) {
-      showToast('Supabase未配置，无法登录');
+      showToast(typeof I18n!=='undefined'?I18n.t('toast_login_needed'):'Supabase not configured');
       return;
     }
     const { error } = await SupabaseDB.client.auth.signInWithOAuth({
@@ -175,12 +175,12 @@ var OceanAuth = {
       if (signUpError) {
         if (errEl) { errEl.textContent = signUpError.message; errEl.style.display = 'block'; }
       } else {
-        showToast('注册成功！请查收验证邮件');
+        showToast(typeof I18n!=='undefined'?I18n.t('toast_register_ok'):'Registration successful! Check your email');
         const modal = document.getElementById('auth-modal');
         if (modal) modal.remove();
       }
     } else {
-      showToast('登录成功 🎉');
+      showToast(typeof I18n!=='undefined'?I18n.t('toast_login_ok'):'Login successful 🎉');
       const modal = document.getElementById('auth-modal');
       if (modal) modal.remove();
     }
@@ -208,7 +208,7 @@ var OceanAuth = {
       this.isAnonymous = true;
       this.updateUI(null);
       menu.remove();
-      showToast('已退出登录');
+      showToast(typeof I18n!=='undefined'?I18n.t('toast_logout'):'Logged out');
     };
 
     const close = (e) => {

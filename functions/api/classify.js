@@ -27,7 +27,7 @@ export async function onRequestPost(context) {
 
     console.info('[classify] env.AI available, calling vision model');
     const classification = await classifyWithAI(env, imageBuffer, creatureType);
-    const creativity = await scoreCreativity(env, imageBuffer, creatureType);
+    const creativity = await scoreCreativity(env, imageBuffer, creatureType, true);
 
     return jsonResponse({
       type: creatureType,
@@ -52,8 +52,18 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+async function ensureLicenseAccepted(env) {
+  try {
+    await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+      prompt: 'agree',
+      max_tokens: 1,
+    });
+  } catch (e) {}
+}
+
 async function classifyWithAI(env, imageBuffer, expectedType) {
   try {
+    await ensureLicenseAccepted(env);
     const response = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
       image: new Uint8Array(imageBuffer),
       prompt: buildPrompt(expectedType),
@@ -123,8 +133,9 @@ function fallbackClassification(expectedType) {
   };
 }
 
-async function scoreCreativity(env, imageBuffer, creatureType) {
+async function scoreCreativity(env, imageBuffer, creatureType, licenseAccepted = false) {
   try {
+    if (!licenseAccepted) await ensureLicenseAccepted(env);
     const response = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
       image: new Uint8Array(imageBuffer),
       prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background.

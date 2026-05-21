@@ -13,7 +13,14 @@ const SupabaseDB = {
     }
 
     if (typeof supabase !== 'undefined') {
-      this.client = supabase.createClient(url, key);
+      this.client = supabase.createClient(url, key, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+          storage: window.localStorage
+        }
+      });
       this.enabled = true;
       console.info('[SupabaseDB] Connected to', url);
     } else {

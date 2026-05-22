@@ -64,7 +64,7 @@ async function ensureLicenseAccepted(env) {
 async function classifyWithAI(env, imageBuffer, expectedType) {
   try {
     const response = await env.AI.run(AI_MODEL, {
-      image: new Uint8Array(imageBuffer),
+      image: imageBuffer,
       prompt: buildPrompt(expectedType),
       max_tokens: 200,
     });
@@ -128,8 +128,8 @@ function parseAIResponse(text, expectedType) {
 
 function fallbackClassification(expectedType) {
   return {
-    similarity: 0.7,
-    feedback: 'Drawing detected. Keep drawing to improve your score!',
+    similarity: 0,
+    feedback: 'AI error. Please try again.',
     suggestedType: expectedType,
   };
 }
@@ -137,7 +137,7 @@ function fallbackClassification(expectedType) {
 async function scoreCreativity(env, imageBuffer, creatureType) {
   try {
     const response = await env.AI.run(AI_MODEL, {
-      image: new Uint8Array(imageBuffer),
+      image: imageBuffer,
       prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
 
 SCORING GUIDE:

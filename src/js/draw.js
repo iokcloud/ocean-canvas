@@ -283,7 +283,7 @@
       return result;
     } catch (err) {
       console.warn('AI classification unavailable, using fallback:', err);
-      aiScore = { similarity: 0.7, isMatch: true, creativity: 50, feedback: 'AI暂不可用，作品已通过' };
+      aiScore = { similarity: 0, isMatch: false, creativity: 0, feedback: typeof I18n!=='undefined'?I18n.t('ai_fallback'):'AI unavailable, please try again' };
       updateScoreDisplay();
       return aiScore;
     } finally {

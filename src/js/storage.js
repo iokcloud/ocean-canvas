@@ -6,7 +6,7 @@ const FEATURES = {
   decorationShop: localStorage.getItem('oc_deco') !== 'off',
   socialFeatures: localStorage.getItem('oc_social') !== 'off',
   analytics: localStorage.getItem('oc_analytics_off') !== 'true',
-  supabase: localStorage.getItem('oc_supabase_url') !== null,
+  globalPool: typeof OC_SUPABASE_URL !== 'undefined' && typeof OC_SUPABASE_ANON_KEY !== 'undefined',
 };
 
 const CREATURE_TYPES = {
@@ -20,15 +20,6 @@ const CREATURE_TYPES = {
   seahorse: { emoji: '🌊', name: '海马', speed: 0.5, wobble: 0.9 }
 };
 
-function getCreatures() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
 function saveCreatures(creatures) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(creatures));
@@ -39,13 +30,13 @@ function saveCreatures(creatures) {
   }
 }
 
-function addCreature(imageData, type, aiData) {
-  if (typeof SupabaseDB !== 'undefined' && SupabaseDB.enabled) {
-    SupabaseDB.addCreature(imageData, type, aiData || {}).then(result => {
-      if (result && typeof MemorySystem !== 'undefined') {
-        MemorySystem.record('user_behavior', { action: 'creature_saved_remote', type, id: result.id });
-      }
-    });
+async function addCreature(imageData, type, aiData) {
+  if (typeof GlobalPool !== 'undefined' && GlobalPool.isEnabled()) {
+    const creature = await GlobalPool.submit(imageData, type, aiData || {});
+    if (creature && typeof MemorySystem !== 'undefined') {
+      MemorySystem.record('user_behavior', { action: 'creature_saved_global', type, id: creature.id });
+    }
+    return creature;
   }
 
   const creatures = getCreatures();
@@ -59,21 +50,17 @@ function addCreature(imageData, type, aiData) {
     emoji: CREATURE_TYPES[type]?.emoji || '🐟',
     aiSimilarity: aiData?.similarity || 0,
     aiCreativity: aiData?.creativity || 0,
+    source: 'local',
   };
   creatures.push(creature);
   saveCreatures(creatures);
   return creature;
 }
 
-function voteCreature(id, delta) {
-  if (typeof SupabaseDB !== 'undefined' && SupabaseDB.enabled) {
-    SupabaseDB.voteCreature(id, delta).then(result => {
-      if (result) {
-        const creatures = getCreatures();
-        const c = creatures.find(x => x.id === id);
-        if (c) { c.score = result.score; c.votes = result.votes; saveCreatures(creatures); }
-      }
-    });
+async function voteCreature(id, delta) {
+  if (typeof GlobalPool !== 'undefined' && GlobalPool.isEnabled()) {
+    const result = await GlobalPool.vote(id, delta);
+    if (result) return result;
   }
 
   const creatures = getCreatures();
@@ -86,22 +73,22 @@ function voteCreature(id, delta) {
   return c;
 }
 
+function getCreatures() {
+  if (typeof GlobalPool !== 'undefined' && GlobalPool.isEnabled()) {
+    const cached = GlobalPool.getCached();
+    if (cached.length > 0) return cached;
+  }
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
 async function getSortedCreatures(sort) {
-  if (typeof SupabaseDB !== 'undefined' && SupabaseDB.enabled) {
-    const remote = await SupabaseDB.getCreatures(sort, 100);
-    if (remote && remote.length > 0) {
-      return remote.map(c => ({
-        id: c.id,
-        imageData: c.imageData,
-        type: c.type,
-        score: c.score,
-        votes: c.votes,
-        createdAt: new Date(c.created_at).getTime(),
-        emoji: c.emoji || CREATURE_TYPES[c.type]?.emoji || '🐟',
-        aiSimilarity: c.ai_similarity || 0,
-        aiCreativity: c.ai_creativity || 0,
-      }));
-    }
+  if (typeof GlobalPool !== 'undefined') {
+    return GlobalPool.fetch(sort || 'recent');
   }
 
   const creatures = getCreatures();
@@ -126,6 +113,24 @@ async function getSortedCreatures(sort) {
     default:
       return creatures;
   }
+}
+
+function buildSeedCreatures() {
+  const imgs = [
+    createDefaultFish('#00e5ff', '#0088aa'),
+    createDefaultFish('#ff00ff', '#aa0088'),
+    createDefaultFish('#00ff88', '#00aa55'),
+    createDefaultJellyfish(),
+    createDefaultTurtle(),
+    createDefaultFish('#ffd700', '#cc8800'),
+    createDefaultJellyfish(),
+    createDefaultTurtle(),
+  ];
+  const types = ['fish', 'fish', 'fish', 'jellyfish', 'turtle', 'fish', 'jellyfish', 'turtle'];
+  return imgs.map((imageData, i) => ({
+    imageData,
+    type: types[i],
+  }));
 }
 
 function seedDefaultCreatures() {
@@ -280,4 +285,6 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
-seedDefaultCreatures();
+if (!FEATURES.globalPool) {
+  seedDefaultCreatures();
+}

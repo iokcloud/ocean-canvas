@@ -135,7 +135,7 @@ var LocalAI = {
       tips.push('Add more details and edges');
     }
     if (similarity >= 0.6) {
-      tips.push('Looking good! Click "AI Score" for detailed analysis');
+      tips.push('Looking good! Ready to release to ocean');
     }
 
     return tips.length > 0 ? tips[0] : 'Drawing detected. Add more details!';

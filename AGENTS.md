@@ -21,6 +21,7 @@ ocean-canvas/
 ├── src/css/style.css       # 全局样式
 ├── src/js/
 │   ├── storage.js          # 数据存储+生物类型+Feature Flags
+│   ├── global-pool.js      # 全球池（Supabase 主数据源+缓存）
 │   ├── draw.js             # 绘画引擎+AI评分
 │   ├── ocean.js            # 深海动画引擎
 │   ├── rank.js             # 排行投票
@@ -53,7 +54,7 @@ ocean-canvas/
 - 前端: 纯HTML/CSS/JS + Canvas 2D（无框架）
 - AI: Cloudflare Workers AI（Llama 3.2 Vision）
 - 托管: Cloudflare Pages
-- 数据: localStorage → Supabase(Phase2)
+- 数据: Supabase 全球池（默认）+ localStorage 缓存/离线降级
 
 ## 关键约定
 - 语言: 简体中文（交互文本+代码注释）
@@ -69,6 +70,7 @@ FEATURES.devMode           // oc_dev=true开启
 FEATURES.decorationShop    // oc_deco=off关闭
 FEATURES.socialFeatures    // oc_social=off关闭
 FEATURES.analytics         // oc_analytics_off=true关闭
+FEATURES.globalPool        // supabase-config.js 已配置时自动开启
 ```
 
 ## 开发命令

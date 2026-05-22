@@ -96,6 +96,28 @@ body {
 .nav-links {
   display: flex;
   gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.global-pool-status {
+  font-size: 0.65rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  color: var(--neon-cyan);
+  background: rgba(0, 229, 255, 0.06);
+  white-space: nowrap;
+}
+
+.global-pool-status[data-state="local"] {
+  color: var(--text-muted);
+  border-color: rgba(136, 146, 176, 0.2);
+  background: transparent;
+}
+
+.global-pool-status[data-state="loading"] {
+  color: var(--text-secondary);
 }
 
 .nav-link {

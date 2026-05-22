@@ -17,7 +17,12 @@
   <div id="results"></div>
   <div id="summary"></div>
 
+  <script src="src/js/supabase-config.js"></script>
+  <script src="src/js/storage.js"></script>
+  <script src="src/js/supabase-db.js"></script>
+  <script src="src/js/global-pool.js"></script>
   <script>
+    if (typeof SupabaseDB !== 'undefined') SupabaseDB.init();
     const results = [];
     function check(name, fn) {
       try {
@@ -72,6 +77,15 @@
 
     check('SupabaseDB 对象存在', () => {
       return { status: typeof SupabaseDB !== 'undefined' ? 'pass' : 'warn', detail: typeof SupabaseDB };
+    });
+
+    check('GlobalPool 对象存在', () => {
+      return { status: typeof GlobalPool !== 'undefined' ? 'pass' : 'fail', detail: typeof GlobalPool };
+    });
+
+    check('全球池 Feature Flag', () => {
+      const on = typeof FEATURES !== 'undefined' && FEATURES.globalPool;
+      return { status: on ? 'pass' : 'warn', detail: on ? 'enabled' : 'local only' };
     });
 
     check('ShareSystem 对象存在', () => {

@@ -10,9 +10,6 @@
   let history = [];
   const MAX_HISTORY = 30;
   let aiScore = null;
-  let isCheckingAI = false;
-
-  const AI_ENDPOINT = '/api/classify';
 
   function getTypeHint(type) {
     const key = 'type_hint_' + type;
@@ -121,9 +118,15 @@
     if (isCanvasBlank()) {
       const display = document.getElementById('ai-score-display');
       if (display) display.innerHTML = '';
+      aiApproved = false;
+      aiScore = null;
+      updateSwimBtn();
       return;
     }
     const result = LocalAI.analyze(canvas, ctx, currentType);
+    aiScore = { similarity: result.similarity, isMatch: result.similarity >= 0.6, creativity: result.creativity, feedback: '' };
+    aiApproved = result.similarity >= 0.6;
+    updateSwimBtn();
     updateLocalScoreDisplay(result);
   }
 
@@ -142,12 +145,11 @@
     const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 40 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
 
     display.innerHTML = `
-      <span style="color:var(--text-muted);font-size:0.65rem">⚡ 预估</span>
+      <span style="color:var(--text-muted);font-size:0.65rem">⚡</span>
       <span style="color:${simColor};font-size:0.78rem">相似度 ${sim}%</span>
       <span style="margin:0 6px;color:var(--text-muted)">|</span>
       <span style="color:var(--neon-cyan);font-size:0.78rem">创意分 ${cre}</span>
-      <span style="margin:0 6px;color:var(--text-muted)">|</span>
-      <span style="color:var(--text-muted);font-size:0.65rem">点AI评分获取详细反馈</span>
+      ${sim >= 60 ? '<span style="margin:0 6px;color:var(--text-muted)">|</span><span style="color:var(--neon-green);font-size:0.65rem">✓ 可放入深海</span>' : '<span style="margin:0 6px;color:var(--text-muted)">|</span><span style="color:var(--neon-magenta);font-size:0.65rem">继续添加细节</span>'}
     `;
   }
 
@@ -201,9 +203,8 @@
     aiScore = null;
     aiApproved = false;
     updateSwimBtn();
-    updateScoreDisplay();
-    const panel = document.getElementById('ai-result-panel');
-    if (panel) panel.remove();
+    const display = document.getElementById('ai-score-display');
+    if (display) display.innerHTML = '';
   });
 
   document.querySelectorAll('.creature-btn').forEach(btn => {
@@ -229,140 +230,8 @@
     return true;
   }
 
-  function prepareForAI() {
-    const temp = document.createElement('canvas');
-    temp.width = drawW;
-    temp.height = drawH;
-    const tCtx = temp.getContext('2d');
-
-    tCtx.fillStyle = '#ffffff';
-    tCtx.fillRect(0, 0, temp.width, temp.height);
-
-    const imgData = ctx.getImageData(0, 0, drawW, drawH);
-    const pixels = imgData.data;
-    for (let i = 0; i < pixels.length; i += 4) {
-      const r = pixels[i], g = pixels[i+1], b = pixels[i+2], a = pixels[i+3];
-      const isBg = (Math.abs(r - 13) < 8 && Math.abs(g - 17) < 8 && Math.abs(b - 23) < 8);
-      if (!isBg && a > 16) {
-        imgData.data[i] = r;
-        imgData.data[i+1] = g;
-        imgData.data[i+2] = b;
-        imgData.data[i+3] = 255;
-      } else {
-        imgData.data[i] = 255;
-        imgData.data[i+1] = 255;
-        imgData.data[i+2] = 255;
-        imgData.data[i+3] = 255;
-      }
-    }
-    tCtx.putImageData(imgData, 0, 0);
-
-    const cropped = cropCanvasToContent(tCtx, temp.width, temp.height);
-    return cropped || temp;
-  }
-
-  function cropCanvasToContent(tCtx, w, h) {
-    const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 80));
-    const data = tCtx.getImageData(0, 0, w, h).data;
-    let minX = w, minY = h, maxX = 0, maxY = 0;
-    let found = false;
-    for (let y = 0; y < h; y += step) {
-      for (let x = 0; x < w; x += step) {
-        const i = (y * w + x) * 4;
-        if (data[i] < 240 || data[i+1] < 240 || data[i+2] < 240) {
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-          found = true;
-        }
-      }
-    }
-    if (!found) return null;
-    minX = Math.max(0, minX - step);
-    minY = Math.max(0, minY - step);
-    maxX = Math.min(w - 1, maxX + step);
-    maxY = Math.min(h - 1, maxY + step);
-    const cw = maxX - minX + 1;
-    const ch = maxY - minY + 1;
-    const result = document.createElement('canvas');
-    result.width = Math.max(cw, 1);
-    result.height = Math.max(ch, 1);
-    result.getContext('2d').drawImage(
-      tCtx.canvas, minX, minY, cw, ch, 0, 0, result.width, result.height
-    );
-    return result;
-  }
-
-  async function checkWithAI() {
-    if (!FEATURES.aiClassification) {
-      aiScore = { similarity: 0.75, isMatch: true, creativity: 50, feedback: 'AI识别已关闭' };
-      updateScoreDisplay();
-      return aiScore;
-    }
-    if (isCanvasBlank() || isCheckingAI) return null;
-
-    isCheckingAI = true;
-    try {
-      const aiCanvas = prepareForAI();
-      const blob = await new Promise(resolve => aiCanvas.toBlob(resolve, 'image/png'));
-      const formData = new FormData();
-      formData.append('image', blob, 'creature.png');
-      formData.append('type', currentType);
-
-      const resp = await fetch(AI_ENDPOINT, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!resp.ok) throw new Error('AI check failed');
-      const result = await resp.json();
-      aiScore = result;
-      updateScoreDisplay();
-      return result;
-    } catch (err) {
-      console.warn('AI classification unavailable, using fallback:', err);
-      aiScore = { similarity: 0, isMatch: false, creativity: 0, feedback: typeof I18n!=='undefined'?I18n.t('ai_fallback'):'AI unavailable, please try again' };
-      updateScoreDisplay();
-      return aiScore;
-    } finally {
-      isCheckingAI = false;
-    }
-  }
-
-  function updateScoreDisplay() {
-    let display = document.getElementById('ai-score-display');
-    if (!display) {
-      display = document.createElement('div');
-      display.id = 'ai-score-display';
-      display.style.cssText = 'text-align:center;margin-top:4px;font-size:0.8rem;min-height:20px;transition:all 0.3s ease';
-      const hint = document.getElementById('hint-text');
-      hint.parentNode.insertBefore(display, hint.nextSibling);
-    }
-
-    if (!aiScore) {
-      display.innerHTML = '';
-      return;
-    }
-
-    const sim = Math.round(aiScore.similarity * 100);
-    const cre = aiScore.creativity || 0;
-    const isMatch = aiScore.isMatch;
-    const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 30 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
-    const matchIcon = isMatch ? '✅' : '⚠️';
-
-    display.innerHTML = `
-      <span style="color:${simColor}">${matchIcon} 相似度 ${sim}%</span>
-      <span style="margin:0 8px;color:var(--text-muted)">|</span>
-      <span style="color:var(--neon-cyan)">🎨 创意分 ${cre}</span>
-      ${aiScore.feedback ? `<span style="margin:0 8px;color:var(--text-muted)">|</span><span style="color:var(--text-secondary)">${aiScore.feedback}</span>` : ''}
-    `;
-  }
-
-  let checkTimeout = null;
   let aiApproved = false;
 
-  const aiCheckBtn = document.getElementById('ai-check-btn');
   const swimBtn = document.getElementById('swim-btn');
 
   function updateSwimBtn() {
@@ -377,100 +246,34 @@
     }
   }
 
-  aiCheckBtn.addEventListener('click', async function() {
-    const btn = this;
-    if (btn.disabled) return;
-    if (isCanvasBlank()) {
-      showToast(typeof I18n!=='undefined'?I18n.t('toast_blank'):'Canvas is blank, draw something first ✏️');
-      return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = typeof I18n!=='undefined'?I18n.t('ai_checking'):'AI analyzing...';
-    aiApproved = false;
-    updateSwimBtn();
-
-    const spinner = document.getElementById('ai-spinner');
-    if (spinner) spinner.style.display = 'inline-block';
-
-    const result = await checkWithAI();
-    const similarity = result ? result.similarity : 0.7;
-    const isMatch = result ? result.isMatch : true;
-    const creativity = result ? result.creativity : 50;
-
-    if (spinner) spinner.style.display = 'none';
-    btn.disabled = false;
-    btn.textContent = typeof I18n!=='undefined'?I18n.t('btn_ai_check'):'AI Score 🔍';
-
-    if (isMatch && similarity >= 0.6) {
-      aiApproved = true;
-      updateSwimBtn();
-    }
-
-    showAIScorePanel(similarity, isMatch, creativity, result?.feedback || '', result?.suggestedType);
-  });
-
   swimBtn.addEventListener('click', async function() {
     if (!aiApproved) {
-      showToast(typeof I18n!=='undefined'?I18n.t('toast_need_score'):'Please pass AI score first ✏️');
+      showToast(typeof I18n!=='undefined'?I18n.t('toast_need_score'):'Score too low, add more detail ✏️');
       return;
     }
-    const similarity = aiScore ? aiScore.similarity : 0.7;
-    const isMatch = aiScore ? aiScore.isMatch : true;
-    const creativity = aiScore ? aiScore.creativity : 50;
-    doSubmitCreature(similarity, isMatch, creativity);
+    if (!aiScore) {
+      runLocalPreview();
+      if (!aiApproved) return;
+    }
+    swimBtn.disabled = true;
+    const similarity = aiScore.similarity;
+    const isMatch = aiScore.isMatch;
+    const creativity = aiScore.creativity;
+    try {
+      await doSubmitCreature(similarity, isMatch, creativity);
+    } finally {
+      updateSwimBtn();
+    }
   });
 
-  function showAIScorePanel(similarity, isMatch, creativity, feedback, suggestedType) {
-    const sim = Math.round(similarity * 100);
-    const typeInfo = CREATURE_TYPES[currentType] || CREATURE_TYPES.fish;
-    const passed = isMatch && similarity >= 0.5;
-
-    let panel = document.getElementById('ai-result-panel');
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = 'ai-result-panel';
-      const hint = document.getElementById('hint-text');
-      hint.parentNode.insertBefore(panel, hint.nextSibling);
-    }
-
-    const statusColor = passed ? 'var(--neon-green)' : similarity >= 0.4 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
-    const statusIcon = passed ? '✅' : similarity >= 0.4 ? '⚠️' : '❌';
-    const statusText = passed ? (typeof I18n!=='undefined'?I18n.t('ai_score_pass'):'Score passed') : similarity >= 0.4 ? (typeof I18n!=='undefined'?I18n.t('ai_score_low'):'Low similarity') : (typeof I18n!=='undefined'?I18n.t('ai_score_fail'):'Not passed');
-
-    panel.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-glow);border-radius:12px;padding:16px;margin-top:12px;text-align:center;transition:all 0.3s ease';
-
-    panel.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:1.2rem">${statusIcon}</span>
-        <span style="font-family:Orbitron,monospace;font-size:0.95rem;color:${statusColor}">${statusText}</span>
-        <span style="color:var(--text-muted);font-size:0.75rem">${typeInfo.emoji} ${typeInfo.name}</span>
-      </div>
-      <div style="display:flex;justify-content:center;gap:24px;margin-bottom:10px">
-        <div>
-          <div style="color:var(--text-muted);font-size:0.65rem">${typeof I18n!=='undefined'?I18n.t('similarity'):'Similarity'}</div>
-          <div style="color:${passed?'var(--neon-green)':'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
-        </div>
-        <div style="width:1px;background:var(--border-subtle)"></div>
-        <div>
-          <div style="color:var(--text-muted);font-size:0.65rem">${typeof I18n!=='undefined'?I18n.t('creativity'):'Creativity'}</div>
-          <div style="color:var(--neon-cyan);font-size:1.4rem;font-weight:700">${creativity}</div>
-        </div>
-      </div>
-      ${feedback ? `<div style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:8px">${feedback}</div>` : ''}
-      ${!passed && suggestedType && suggestedType !== currentType ? `<div style="color:var(--neon-magenta);font-size:0.75rem;margin-bottom:8px">${typeof I18n!=='undefined'?I18n.t('ai_suggest_type'):'💡 AI thinks it looks more like a'} ${CREATURE_TYPES[suggestedType]?.name || suggestedType}</div>` : ''}
-      ${passed ? `<div style="color:var(--neon-green);font-size:0.75rem">${typeof I18n!=='undefined'?I18n.t('ai_unlocked'):'✓ Unlocked'}</div>` : `<div style="color:var(--text-muted);font-size:0.75rem">${typeof I18n!=='undefined'?I18n.t('ai_modify'):'Modify and re-score'}</div>`}
-    `;
-  }
-
-  function doSubmitCreature(similarity, isMatch, creativity) {
+  async function doSubmitCreature(similarity, isMatch, creativity) {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = drawW;
     tempCanvas.height = drawH;
     tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
 
     const imageData = tempCanvas.toDataURL('image/png');
-    const creature = addCreature(imageData, currentType, { similarity, creativity, isMatch });
+    const creature = await addCreature(imageData, currentType, { similarity, creativity, isMatch });
 
     if (typeof DailyChallenge !== 'undefined' && DailyChallenge.checkCompletion(currentType)) {
       const locale = typeof I18n !== 'undefined' ? I18n.locale : 'en';
@@ -482,7 +285,9 @@
       setTimeout(() => AchievementSystem.checkBadges(AchievementSystem.getStats()), 500);
     }
 
-    if (isMatch) {
+    if (creature && creature.source === 'global') {
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n !== 'undefined' ? I18n.t('toast_global_released') : 'Released to the global ocean!'}`);
+    } else if (isMatch) {
       showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_released'):'released to ocean!'}`);
     } else {
       showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_pending'):'submitted (pending)'}`);
@@ -495,10 +300,9 @@
     aiScore = null;
     aiApproved = false;
     updateSwimBtn();
-    updateScoreDisplay();
 
-    const panel = document.getElementById('ai-result-panel');
-    if (panel) panel.remove();
+    const display = document.getElementById('ai-score-display');
+    if (display) display.innerHTML = '';
 
     showShareModal(tempCanvas, { type: currentType, similarity, creativity, isMatch });
   }

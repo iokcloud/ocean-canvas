@@ -33,8 +33,8 @@
     loading.style.display = 'none';
 
     grid.querySelectorAll('.upvote').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const c = voteCreature(this.dataset.id, 1);
+      btn.addEventListener('click', async function() {
+        const c = await voteCreature(this.dataset.id, 1);
         if (c) {
           const card = this.closest('.creature-card');
           card.querySelector('.card-score').textContent = '⭐ ' + c.score;
@@ -46,8 +46,8 @@
     });
 
     grid.querySelectorAll('.downvote').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const c = voteCreature(this.dataset.id, -1);
+      btn.addEventListener('click', async function() {
+        const c = await voteCreature(this.dataset.id, -1);
         if (c) {
           const card = this.closest('.creature-card');
           card.querySelector('.card-score').textContent = '⭐ ' + c.score;

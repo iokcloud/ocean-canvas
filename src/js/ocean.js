@@ -19,20 +19,25 @@
     canvas.height = H * dpr;
     canvas.style.width = W + 'px';
     canvas.style.height = H + 'px';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
   }
   resize();
   window.addEventListener('resize', () => { resize(); initBubbles(); });
 
+  const NEW_CREATURE_MS = 120000;
+
   async function loadCreatures() {
     const sort = document.getElementById('tank-sort')?.value || currentSort;
     const data = await getSortedCreatures(sort);
+    const now = Date.now();
     creatures = data.map(c => {
       const img = new Image();
       img.onerror = () => { img._failed = true; };
       img.src = c.imageData;
       const typeInfo = CREATURE_TYPES[c.type] || CREATURE_TYPES.fish;
       const scale = 0.3 + Math.random() * 0.3;
+      const isNew = (now - (c.createdAt || 0)) < NEW_CREATURE_MS;
       return {
         ...c,
         img,
@@ -47,10 +52,14 @@
         targetX: null,
         targetY: null,
         glowColor: getGlowColor(c.type),
-        glowIntensity: 0
+        glowIntensity: isNew ? 1 : 0,
+        isNew,
       };
     });
     updateCount();
+    if (typeof GlobalPool !== 'undefined') {
+      GlobalPool.renderStatusBadge(creatures.length);
+    }
   }
 
   function getGlowColor(type) {
@@ -235,9 +244,10 @@
         ctx.scale(pulse, 1 / pulse);
       }
 
-      c.glowIntensity = 0.5 + Math.sin(time * 0.002 + c.wobblePhase) * 0.3;
-      ctx.shadowColor = c.glowColor;
-      ctx.shadowBlur = 15 * c.glowIntensity;
+      const pulse = 0.5 + Math.sin(time * 0.002 + c.wobblePhase) * 0.3;
+      c.glowIntensity = c.isNew ? Math.max(pulse, 0.85) : pulse;
+      ctx.shadowColor = c.isNew ? 'rgba(0, 229, 255, 0.45)' : c.glowColor;
+      ctx.shadowBlur = c.isNew ? 28 * c.glowIntensity : 15 * c.glowIntensity;
 
       if (imgFailed) {
         const emoji = typeInfo.emoji || '🐟';

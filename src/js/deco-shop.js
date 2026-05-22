@@ -64,7 +64,7 @@ var DecoShop = {
   },
 
   renderShopButton() {
-    if (typeof FEATURES !== 'undefined' && !FEATURES.decoration) return;
+    if (typeof FEATURES !== 'undefined' && !FEATURES.decorationShop) return;
     const toolbar = document.querySelector('.toolbar');
     if (!toolbar || document.getElementById('deco-btn')) return;
     const btn = document.createElement('button');

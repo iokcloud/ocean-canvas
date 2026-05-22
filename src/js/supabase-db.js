@@ -140,10 +140,14 @@ const SupabaseDB = {
       return null;
     }
 
-    return data.map(c => ({
-      ...c,
-      imageData: c.image_data || (c.image_path ? this.getPublicUrl(c.image_path) : null),
-    }));
+    if (!data || data.length === 0) return [];
+
+    return data
+      .map(c => ({
+        ...c,
+        imageData: c.image_data || (c.image_path ? this.getPublicUrl(c.image_path) : null),
+      }))
+      .filter(c => c.imageData);
   },
 
   async voteCreature(creatureId, delta) {

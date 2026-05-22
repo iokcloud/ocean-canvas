@@ -63,8 +63,9 @@ async function ensureLicenseAccepted(env) {
 
 async function classifyWithAI(env, imageBuffer, expectedType) {
   try {
+    const imageArray = [...new Uint8Array(imageBuffer)];
     const response = await env.AI.run(AI_MODEL, {
-      image: imageBuffer,
+      image: imageArray,
       prompt: buildPrompt(expectedType),
       max_tokens: 200,
     });
@@ -136,8 +137,9 @@ function fallbackClassification(expectedType) {
 
 async function scoreCreativity(env, imageBuffer, creatureType) {
   try {
+    const imageArray = [...new Uint8Array(imageBuffer)];
     const response = await env.AI.run(AI_MODEL, {
-      image: imageBuffer,
+      image: imageArray,
       prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
 
 SCORING GUIDE:

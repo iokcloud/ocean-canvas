@@ -6,7 +6,7 @@
   "nav_logout": "Logout",
   "title_draw": "Draw Your Deep Sea Creature",
   "subtitle_draw": "Choose a creature, create on canvas, then let it swim into the deep sea",
-  "hint_draw": "💡 Draw facing right | Pause 1.5s for AI similarity, 60%+ to release",
+  "hint_draw": "💡 Draw facing right | Tap AI Score first, then release when passed",
   "btn_ai_check": "AI Score 🔍",
   "btn_swim": "Release to Ocean 🌊",
   "btn_ocean": "Enter Ocean",

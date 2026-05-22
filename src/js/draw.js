@@ -10,21 +10,13 @@
   let history = [];
   const MAX_HISTORY = 30;
   let aiScore = null;
-  let aiApproved = false;
-  let aiCheckTimer = null;
-  let aiCheckSeq = 0;
-  let serverCheckInFlight = false;
+  let isCheckingAI = false;
 
-  const passThreshold = (typeof AI_CONFIG !== 'undefined' && AI_CONFIG.passSimilarity) || 0.6;
-  const debounceMs = (typeof AI_CONFIG !== 'undefined' && AI_CONFIG.debounceMs) || 1500;
-  const aiEnabled = typeof FEATURES === 'undefined' || FEATURES.aiClassification;
-
-  function t(key, fallback) {
-    return typeof I18n !== 'undefined' ? I18n.t(key) : fallback;
-  }
+  const AI_ENDPOINT = '/api/classify';
 
   function getTypeHint(type) {
-    return t('type_hint_' + type, '');
+    const key = 'type_hint_' + type;
+    return typeof I18n !== 'undefined' ? I18n.t(key) : '';
   }
 
   let drawW = 480, drawH = 280;
@@ -36,7 +28,7 @@
 
     let savedImage = null;
     if (preserveContent && canvas.width > 0 && canvas.height > 0) {
-      try { savedImage = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch (e) {}
+      try { savedImage = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch(e) {}
     }
 
     canvas.width = drawW;
@@ -48,7 +40,7 @@
     ctx.fillRect(0, 0, drawW, drawH);
 
     if (savedImage) {
-      try { ctx.putImageData(savedImage, 0, 0); } catch (e) {}
+      try { ctx.putImageData(savedImage, 0, 0); } catch(e) {}
     }
 
     if (!preserveContent) {
@@ -72,7 +64,6 @@
     img.onload = () => {
       ctx.clearRect(0, 0, drawW, drawH);
       ctx.drawImage(img, 0, 0);
-      scheduleAICheck();
     };
     img.src = history[history.length - 1];
   }
@@ -85,7 +76,7 @@
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     return {
       x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
+      y: (clientY - rect.top) * scaleY
     };
   }
 
@@ -121,138 +112,22 @@
     if (isDrawing) {
       isDrawing = false;
       saveState();
-      scheduleAICheck();
+      runLocalPreview();
     }
-  }
-
-  function isCanvasBlank() {
-    const w = drawW, h = drawH;
-    const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 60));
-    const data = ctx.getImageData(0, 0, w, h).data;
-    for (let y = 0; y < h; y += step) {
-      for (let x = 0; x < w; x += step) {
-        const i = (y * w + x) * 4;
-        if (data[i] !== 13 || data[i + 1] !== 17 || data[i + 2] !== 23) return false;
-      }
-    }
-    return true;
-  }
-
-  function resetAIScore() {
-    aiScore = null;
-    aiApproved = false;
-    updateSwimBtn();
-  }
-
-  function scheduleAICheck() {
-    if (aiCheckTimer) clearTimeout(aiCheckTimer);
-    if (isCanvasBlank()) {
-      const display = document.getElementById('ai-score-display');
-      if (display) display.innerHTML = '';
-      resetAIScore();
-      return;
-    }
-
-    runLocalPreview();
-    aiCheckTimer = setTimeout(() => runServerAICheck(), debounceMs);
   }
 
   function runLocalPreview() {
     if (typeof LocalAI === 'undefined') return;
-    const local = LocalAI.analyze(canvas, ctx, currentType);
-    aiScore = {
-      draftCompletion: local.draftCompletion,
-      similarity: null,
-      creativity: local.creativity,
-      isMatch: false,
-      verified: false,
-      feedback: local.feedback,
-      isScribble: local.isScribble,
-    };
-    aiApproved = false;
-    updateSwimBtn();
-    updateScoreDisplay({ checking: !aiEnabled });
-  }
-
-  async function runServerAICheck() {
-    if (!aiEnabled) {
-      aiApproved = true;
-      aiScore = { similarity: 0.7, creativity: 50, isMatch: true, verified: true, draftCompletion: 0.3 };
-      updateSwimBtn();
-      updateScoreDisplay({});
+    if (isCanvasBlank()) {
+      const display = document.getElementById('ai-score-display');
+      if (display) display.innerHTML = '';
       return;
     }
-
-    if (isCanvasBlank()) return;
-
-    const seq = ++aiCheckSeq;
-    serverCheckInFlight = true;
-    updateScoreDisplay({ checking: true });
-
-    try {
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob(b => (b ? resolve(b) : reject(new Error('blob failed'))), 'image/png');
-      });
-
-      const form = new FormData();
-      form.append('image', blob, 'creature.png');
-      form.append('type', currentType);
-
-      const res = await fetch('/api/classify', { method: 'POST', body: form });
-      if (seq !== aiCheckSeq) return;
-
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      if (data.aiUnavailable || data.errorCode === 'AI_BINDING_MISSING') {
-        throw new Error('AI_BINDING_MISSING');
-      }
-      if (data.error) throw new Error(data.error);
-
-      const similarity = typeof data.similarity === 'number' ? data.similarity : 0;
-      const creativity = typeof data.creativity === 'number' ? data.creativity : 0;
-      const isMatch = similarity >= passThreshold;
-
-      const local = typeof LocalAI !== 'undefined'
-        ? LocalAI.analyze(canvas, ctx, currentType)
-        : { draftCompletion: 0, isScribble: false };
-
-      aiScore = {
-        draftCompletion: local.draftCompletion,
-        similarity,
-        creativity,
-        isMatch,
-        verified: true,
-        feedback: data.feedback || '',
-        suggestedType: data.suggestedType,
-        isScribble: local.isScribble,
-      };
-      aiApproved = isMatch;
-      updateSwimBtn();
-      updateScoreDisplay({});
-    } catch (err) {
-      if (seq !== aiCheckSeq) return;
-      console.warn('[draw] AI classify failed:', err.message);
-      const isBinding = err.message === 'AI_BINDING_MISSING';
-      aiScore = Object.assign({}, aiScore || {}, {
-        similarity: isBinding ? 0 : null,
-        verified: isBinding,
-        isMatch: false,
-        creativity: isBinding ? 0 : (aiScore?.creativity || 0),
-        feedback: isBinding
-          ? t('ai_binding_missing', 'AI service not configured on server. Contact admin or try later.')
-          : t('ai_error_retry', 'AI unavailable, try again in a moment'),
-        aiUnavailable: isBinding,
-      });
-      aiApproved = false;
-      updateSwimBtn();
-      updateScoreDisplay({ error: true, bindingMissing: isBinding });
-    } finally {
-      if (seq === aiCheckSeq) serverCheckInFlight = false;
-    }
+    const result = LocalAI.analyze(canvas, ctx, currentType);
+    updateLocalScoreDisplay(result);
   }
 
-  function updateScoreDisplay(opts) {
-    opts = opts || {};
+  function updateLocalScoreDisplay(result) {
     let display = document.getElementById('ai-score-display');
     if (!display) {
       display = document.createElement('div');
@@ -262,52 +137,18 @@
       hint.parentNode.insertBefore(display, hint.nextSibling);
     }
 
-    if (opts.checking) {
-      display.innerHTML = `<span style="color:var(--text-muted);font-size:0.72rem">${t('ai_checking', 'AI analyzing...')}</span>`;
-      return;
-    }
+    const sim = Math.round(result.similarity * 100);
+    const cre = result.creativity;
+    const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 40 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
 
-    if (opts.error || !aiScore) {
-      const color = opts.bindingMissing ? 'var(--neon-gold)' : 'var(--neon-magenta)';
-      display.innerHTML = `<span style="color:${color};font-size:0.72rem;line-height:1.4">${aiScore?.feedback || t('ai_error_retry', 'AI check failed')}</span>`;
-      return;
-    }
-
-    if (aiScore.aiUnavailable) {
-      display.innerHTML = `<span style="color:var(--neon-gold);font-size:0.72rem">${aiScore.feedback}</span>`;
-      return;
-    }
-
-    const draft = Math.round((aiScore.draftCompletion || 0) * 100);
-    const parts = [
-      `<span style="color:var(--text-muted);font-size:0.65rem">📝</span>`,
-      `<span style="color:var(--text-secondary);font-size:0.72rem">${t('score_draft', 'Draft')} ${draft}%</span>`,
-    ];
-
-    if (aiScore.similarity != null) {
-      const sim = Math.round(aiScore.similarity * 100);
-      const cre = aiScore.creativity || 0;
-      const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 35 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
-      parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
-      parts.push(`<span style="color:var(--neon-cyan);font-size:0.65rem">🤖</span>`);
-      parts.push(`<span style="color:${simColor};font-size:0.78rem">${t('score_similarity', 'Similarity')} ${sim}%</span>`);
-      parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
-      parts.push(`<span style="color:var(--neon-cyan);font-size:0.78rem">${t('creativity', 'Creativity')} ${cre}</span>`);
-
-      if (aiScore.isMatch) {
-        parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
-        parts.push(`<span style="color:var(--neon-green);font-size:0.65rem">${t('ai_unlocked', '✓ Ready to release')}</span>`);
-      } else {
-        parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
-        const tip = aiScore.feedback || (aiScore.isScribble ? t('ai_feedback_scribble', '') : t('ai_modify', 'Add clearer creature features'));
-        parts.push(`<span style="color:var(--neon-magenta);font-size:0.65rem">${tip}</span>`);
-      }
-    } else {
-      parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
-      parts.push(`<span style="color:var(--text-muted);font-size:0.65rem">${t('ai_feedback_wait_ai', 'Pause for AI similarity check')}</span>`);
-    }
-
-    display.innerHTML = parts.join('');
+    display.innerHTML = `
+      <span style="color:var(--text-muted);font-size:0.65rem">⚡ 预估</span>
+      <span style="color:${simColor};font-size:0.78rem">相似度 ${sim}%</span>
+      <span style="margin:0 6px;color:var(--text-muted)">|</span>
+      <span style="color:var(--neon-cyan);font-size:0.78rem">创意分 ${cre}</span>
+      <span style="margin:0 6px;color:var(--text-muted)">|</span>
+      <span style="color:var(--text-muted);font-size:0.65rem">点AI评分获取详细反馈</span>
+    `;
   }
 
   canvas.addEventListener('mousedown', startDraw);
@@ -344,23 +185,25 @@
   const sizeSlider = document.getElementById('brush-size');
   const sizeLabel = document.getElementById('size-label');
   sizeSlider.addEventListener('input', function() {
-    brushSize = parseInt(this.value, 10);
+    brushSize = parseInt(this.value);
     sizeLabel.textContent = brushSize;
   });
 
   document.getElementById('undo-btn').addEventListener('click', function() {
     undo();
+    setTimeout(runLocalPreview, 100);
   });
 
   document.getElementById('clear-btn').addEventListener('click', function() {
-    if (aiCheckTimer) clearTimeout(aiCheckTimer);
-    aiCheckSeq++;
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, drawW, drawH);
     saveState();
-    const display = document.getElementById('ai-score-display');
-    if (display) display.innerHTML = '';
-    resetAIScore();
+    aiScore = null;
+    aiApproved = false;
+    updateSwimBtn();
+    updateScoreDisplay();
+    const panel = document.getElementById('ai-result-panel');
+    if (panel) panel.remove();
   });
 
   document.querySelectorAll('.creature-btn').forEach(btn => {
@@ -368,11 +211,169 @@
       document.querySelectorAll('.creature-btn').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
       currentType = this.dataset.type;
-      document.getElementById('hint-text').textContent = getTypeHint(currentType);
-      scheduleAICheck();
+      const hint = document.getElementById('hint-text');
+      hint.textContent = getTypeHint(currentType);
     });
   });
 
+  function isCanvasBlank() {
+    const w = drawW, h = drawH;
+    const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 60));
+    const data = ctx.getImageData(0, 0, w, h).data;
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const i = (y * w + x) * 4;
+        if (data[i] !== 13 || data[i+1] !== 17 || data[i+2] !== 23) return false;
+      }
+    }
+    return true;
+  }
+
+  function prepareForAI() {
+    const temp = document.createElement('canvas');
+    temp.width = drawW;
+    temp.height = drawH;
+    const tCtx = temp.getContext('2d');
+
+    tCtx.fillStyle = '#ffffff';
+    tCtx.fillRect(0, 0, temp.width, temp.height);
+
+    const imgData = ctx.getImageData(0, 0, drawW, drawH);
+    const pixels = imgData.data;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i], g = pixels[i+1], b = pixels[i+2], a = pixels[i+3];
+      const isBg = (Math.abs(r - 13) < 8 && Math.abs(g - 17) < 8 && Math.abs(b - 23) < 8);
+      if (!isBg && a > 16) {
+        imgData.data[i] = r;
+        imgData.data[i+1] = g;
+        imgData.data[i+2] = b;
+        imgData.data[i+3] = 255;
+      } else {
+        imgData.data[i] = 255;
+        imgData.data[i+1] = 255;
+        imgData.data[i+2] = 255;
+        imgData.data[i+3] = 255;
+      }
+    }
+    tCtx.putImageData(imgData, 0, 0);
+
+    const cropped = cropCanvasToContent(tCtx, temp.width, temp.height);
+    return cropped || temp;
+  }
+
+  function cropCanvasToContent(tCtx, w, h) {
+    const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 80));
+    const data = tCtx.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    let found = false;
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const i = (y * w + x) * 4;
+        if (data[i] < 240 || data[i+1] < 240 || data[i+2] < 240) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          found = true;
+        }
+      }
+    }
+    if (!found) return null;
+    minX = Math.max(0, minX - step);
+    minY = Math.max(0, minY - step);
+    maxX = Math.min(w - 1, maxX + step);
+    maxY = Math.min(h - 1, maxY + step);
+    const cw = maxX - minX + 1;
+    const ch = maxY - minY + 1;
+    const result = document.createElement('canvas');
+    result.width = Math.max(cw, 1);
+    result.height = Math.max(ch, 1);
+    result.getContext('2d').drawImage(
+      tCtx.canvas, minX, minY, cw, ch, 0, 0, result.width, result.height
+    );
+    return result;
+  }
+
+  async function checkWithAI() {
+    if (!FEATURES.aiClassification) {
+      aiScore = { similarity: 0.75, isMatch: true, creativity: 50, feedback: 'AI识别已关闭' };
+      updateScoreDisplay();
+      return aiScore;
+    }
+    if (isCanvasBlank() || isCheckingAI) return null;
+
+    isCheckingAI = true;
+    try {
+      const aiCanvas = prepareForAI();
+      const blob = await new Promise(resolve => aiCanvas.toBlob(resolve, 'image/png'));
+      const formData = new FormData();
+      formData.append('image', blob, 'creature.png');
+      formData.append('type', currentType);
+
+      const resp = await fetch(AI_ENDPOINT, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!resp.ok) throw new Error('AI check failed');
+      const result = await resp.json();
+      if (result.aiUnavailable || result.errorCode === 'AI_BINDING_MISSING') {
+        aiScore = {
+          similarity: 0,
+          isMatch: false,
+          creativity: 0,
+          feedback: typeof I18n !== 'undefined' ? I18n.t('ai_binding_missing') : 'AI not configured on server',
+        };
+        updateScoreDisplay();
+        return aiScore;
+      }
+      if (result.error) throw new Error(result.error);
+      aiScore = result;
+      updateScoreDisplay();
+      return result;
+    } catch (err) {
+      console.warn('AI classification unavailable, using fallback:', err);
+      aiScore = { similarity: 0, isMatch: false, creativity: 0, feedback: typeof I18n!=='undefined'?I18n.t('ai_fallback'):'AI unavailable, please try again' };
+      updateScoreDisplay();
+      return aiScore;
+    } finally {
+      isCheckingAI = false;
+    }
+  }
+
+  function updateScoreDisplay() {
+    let display = document.getElementById('ai-score-display');
+    if (!display) {
+      display = document.createElement('div');
+      display.id = 'ai-score-display';
+      display.style.cssText = 'text-align:center;margin-top:4px;font-size:0.8rem;min-height:20px;transition:all 0.3s ease';
+      const hint = document.getElementById('hint-text');
+      hint.parentNode.insertBefore(display, hint.nextSibling);
+    }
+
+    if (!aiScore) {
+      display.innerHTML = '';
+      return;
+    }
+
+    const sim = Math.round(aiScore.similarity * 100);
+    const cre = aiScore.creativity || 0;
+    const isMatch = aiScore.isMatch;
+    const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 30 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
+    const matchIcon = isMatch ? '✅' : '⚠️';
+
+    display.innerHTML = `
+      <span style="color:${simColor}">${matchIcon} 相似度 ${sim}%</span>
+      <span style="margin:0 8px;color:var(--text-muted)">|</span>
+      <span style="color:var(--neon-cyan)">🎨 创意分 ${cre}</span>
+      ${aiScore.feedback ? `<span style="margin:0 8px;color:var(--text-muted)">|</span><span style="color:var(--text-secondary)">${aiScore.feedback}</span>` : ''}
+    `;
+  }
+
+  let checkTimeout = null;
+  let aiApproved = false;
+
+  const aiCheckBtn = document.getElementById('ai-check-btn');
   const swimBtn = document.getElementById('swim-btn');
 
   function updateSwimBtn() {
@@ -387,33 +388,96 @@
     }
   }
 
-  swimBtn.addEventListener('click', async function() {
+  aiCheckBtn.addEventListener('click', async function() {
+    const btn = this;
+    if (btn.disabled) return;
     if (isCanvasBlank()) {
-      showToast(t('toast_blank', 'Canvas is blank'));
+      showToast(typeof I18n!=='undefined'?I18n.t('toast_blank'):'Canvas is blank, draw something first ✏️');
       return;
     }
 
-    if (!aiScore || !aiScore.verified) {
-      showToast(t('ai_wait_verify', 'Wait for AI check to finish'));
-      await runServerAICheck();
-      if (!aiApproved) {
-        showToast(t('toast_need_score', 'Score too low, add more detail'));
-        return;
-      }
+    btn.disabled = true;
+    btn.textContent = typeof I18n!=='undefined'?I18n.t('ai_checking'):'AI analyzing...';
+    aiApproved = false;
+    updateSwimBtn();
+
+    const spinner = document.getElementById('ai-spinner');
+    if (spinner) spinner.style.display = 'inline-block';
+
+    const result = await checkWithAI();
+    const similarity = result ? result.similarity : 0;
+    const isMatch = result ? result.isMatch : false;
+    const creativity = result ? (result.creativity || 0) : 0;
+
+    if (spinner) spinner.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = typeof I18n!=='undefined'?I18n.t('btn_ai_check'):'AI Score 🔍';
+
+    if (isMatch && similarity >= 0.6) {
+      aiApproved = true;
+      updateSwimBtn();
     }
 
+    showAIScorePanel(similarity, isMatch, creativity, result?.feedback || '', result?.suggestedType);
+  });
+
+  swimBtn.addEventListener('click', async function() {
     if (!aiApproved) {
-      showToast(t('toast_need_score', 'Score too low, add more detail'));
+      showToast(typeof I18n!=='undefined'?I18n.t('toast_need_score'):'Please pass AI score first ✏️');
       return;
     }
-
+    const similarity = aiScore ? aiScore.similarity : 0;
+    const isMatch = aiScore ? aiScore.isMatch : false;
+    const creativity = aiScore ? (aiScore.creativity || 0) : 0;
     swimBtn.disabled = true;
     try {
-      await doSubmitCreature(aiScore.similarity, aiScore.isMatch, aiScore.creativity);
+      await doSubmitCreature(similarity, isMatch, creativity);
     } finally {
       updateSwimBtn();
     }
   });
+
+  function showAIScorePanel(similarity, isMatch, creativity, feedback, suggestedType) {
+    const sim = Math.round(similarity * 100);
+    const typeInfo = CREATURE_TYPES[currentType] || CREATURE_TYPES.fish;
+    const passed = isMatch && similarity >= 0.5;
+
+    let panel = document.getElementById('ai-result-panel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'ai-result-panel';
+      const hint = document.getElementById('hint-text');
+      hint.parentNode.insertBefore(panel, hint.nextSibling);
+    }
+
+    const statusColor = passed ? 'var(--neon-green)' : similarity >= 0.4 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
+    const statusIcon = passed ? '✅' : similarity >= 0.4 ? '⚠️' : '❌';
+    const statusText = passed ? (typeof I18n!=='undefined'?I18n.t('ai_score_pass'):'Score passed') : similarity >= 0.4 ? (typeof I18n!=='undefined'?I18n.t('ai_score_low'):'Low similarity') : (typeof I18n!=='undefined'?I18n.t('ai_score_fail'):'Not passed');
+
+    panel.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-glow);border-radius:12px;padding:16px;margin-top:12px;text-align:center;transition:all 0.3s ease';
+
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:1.2rem">${statusIcon}</span>
+        <span style="font-family:Orbitron,monospace;font-size:0.95rem;color:${statusColor}">${statusText}</span>
+        <span style="color:var(--text-muted);font-size:0.75rem">${typeInfo.emoji} ${typeInfo.name}</span>
+      </div>
+      <div style="display:flex;justify-content:center;gap:24px;margin-bottom:10px">
+        <div>
+          <div style="color:var(--text-muted);font-size:0.65rem">${typeof I18n!=='undefined'?I18n.t('similarity'):'Similarity'}</div>
+          <div style="color:${passed?'var(--neon-green)':'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
+        </div>
+        <div style="width:1px;background:var(--border-subtle)"></div>
+        <div>
+          <div style="color:var(--text-muted);font-size:0.65rem">${typeof I18n!=='undefined'?I18n.t('creativity'):'Creativity'}</div>
+          <div style="color:var(--neon-cyan);font-size:1.4rem;font-weight:700">${creativity}</div>
+        </div>
+      </div>
+      ${feedback ? `<div style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:8px">${feedback}</div>` : ''}
+      ${!passed && suggestedType && suggestedType !== currentType ? `<div style="color:var(--neon-magenta);font-size:0.75rem;margin-bottom:8px">${typeof I18n!=='undefined'?I18n.t('ai_suggest_type'):'💡 AI thinks it looks more like a'} ${CREATURE_TYPES[suggestedType]?.name || suggestedType}</div>` : ''}
+      ${passed ? `<div style="color:var(--neon-green);font-size:0.75rem">${typeof I18n!=='undefined'?I18n.t('ai_unlocked'):'✓ Unlocked'}</div>` : `<div style="color:var(--text-muted);font-size:0.75rem">${typeof I18n!=='undefined'?I18n.t('ai_modify'):'Modify and re-score'}</div>`}
+    `;
+  }
 
   async function doSubmitCreature(similarity, isMatch, creativity) {
     const tempCanvas = document.createElement('canvas');
@@ -425,7 +489,8 @@
     const creature = await addCreature(imageData, currentType, { similarity, creativity, isMatch });
 
     if (typeof DailyChallenge !== 'undefined' && DailyChallenge.checkCompletion(currentType)) {
-      showToast(I18n.locale === 'zh' ? '🎉 每日挑战完成！双倍经验！' : '🎉 Daily challenge complete! Bonus XP!');
+      const locale = typeof I18n !== 'undefined' ? I18n.locale : 'en';
+      showToast(locale === 'zh' ? '🎉 每日挑战完成！双倍经验！' : '🎉 Daily challenge complete! Bonus XP!');
     }
 
     if (typeof AchievementSystem !== 'undefined') {
@@ -434,66 +499,72 @@
     }
 
     if (creature && creature.source === 'global') {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${t('toast_global_released', 'Released to global ocean!')}`);
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n !== 'undefined' ? I18n.t('toast_global_released') : 'Released to global ocean!'}`);
     } else if (isMatch) {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${t('toast_released', 'released!')}`);
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_released'):'released to ocean!'}`);
     } else {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${t('toast_pending', 'submitted (pending)')}`);
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_pending'):'submitted (pending)'}`);
     }
 
-    if (aiCheckTimer) clearTimeout(aiCheckTimer);
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, drawW, drawH);
     history = [];
     saveState();
-    resetAIScore();
-    document.getElementById('ai-score-display').innerHTML = '';
+    aiScore = null;
+    aiApproved = false;
+    updateSwimBtn();
+    updateScoreDisplay();
+
+    const panel = document.getElementById('ai-result-panel');
+    if (panel) panel.remove();
+
     showShareModal(tempCanvas, { type: currentType, similarity, creativity, isMatch });
   }
 
   function showShareModal(creatureCanvas, data) {
-    const sim = Math.round((data.similarity || 0) * 100);
+    const sim = Math.round((data.similarity || 0.7) * 100);
     const cre = data.creativity || 50;
     const typeInfo = CREATURE_TYPES[data.type] || CREATURE_TYPES.fish;
-    const passedText = data.isMatch ? '✅ ' + t('ai_score_pass', 'Passed') : '⚠️ ' + t('toast_pending', 'Pending');
+    const passedText = data.isMatch ? '✅ 通过识别' : '⚠️ 待审核';
 
-    const modal = document.createElement('div');
+    let modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(10px)';
 
     modal.innerHTML = `
       <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:16px;padding:28px;max-width:420px;text-align:center;box-shadow:0 0 50px rgba(0,229,255,0.15)">
         <div style="font-size:2.5rem;margin-bottom:8px">${typeInfo.emoji}</div>
-        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-cyan);margin-bottom:16px">${typeInfo.name}</div>
+        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-cyan);margin-bottom:16px">你的${typeInfo.name}已入深海！</div>
         <div style="display:flex;justify-content:center;gap:20px;margin-bottom:20px">
           <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">${t('score_similarity', 'Similarity')}</div>
-            <div style="color:${sim >= 60 ? 'var(--neon-green)' : 'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">相似度</div>
+            <div style="color:${sim>=60?'var(--neon-green)':'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
           </div>
           <div style="width:1px;background:var(--border-subtle)"></div>
           <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">${t('creativity', 'Creativity')}</div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">创意分</div>
             <div style="color:var(--neon-cyan);font-size:1.4rem;font-weight:700">${cre}</div>
           </div>
           <div style="width:1px;background:var(--border-subtle)"></div>
           <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">${t('status', 'Status')}</div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">状态</div>
             <div style="font-size:0.85rem">${passedText}</div>
           </div>
         </div>
-        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">${t('share_title', 'Share your artwork')}</div>
+        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">${typeof I18n!=='undefined'?I18n.t('share_title'):'Share your artwork 🌊'}</div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-          <button id="share-native" style="padding:10px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.85rem">${t('share_btn', 'Share')}</button>
+          <button id="share-native" style="padding:10px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:1px">📤 分享作品</button>
           <div style="display:flex;gap:8px">
-            <button id="share-twitter" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">Twitter</button>
+            <button id="share-twitter" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">𝕏 Twitter</button>
             <button id="share-reddit" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">Reddit</button>
-            <button id="share-download" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">${t('share_download', 'Save')}</button>
+            <button id="share-download" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">💾 保存</button>
           </div>
         </div>
-        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none">${t('share_go_ocean', 'Enter Ocean')}</a>
+        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none;padding:6px;border:1px solid transparent;border-radius:6px;transition:all 0.2s;position:relative;z-index:10">进入深海观赏 →</a>
       </div>
     `;
 
     document.body.appendChild(modal);
+
     modal.querySelector('#share-native').onclick = () => {
       if (typeof ShareSystem !== 'undefined') ShareSystem.share(creatureCanvas, data);
     };
@@ -509,9 +580,7 @@
         if (blob) {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          a.href = url;
-          a.download = `ocean-canvas-${data.type}.png`;
-          a.click();
+          a.href = url; a.download = `ocean-canvas-${data.type}.png`; a.click();
           setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
       }

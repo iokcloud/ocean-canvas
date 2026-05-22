@@ -6,7 +6,7 @@
   "nav_logout": "退出登录",
   "title_draw": "绘制你的深海生物",
   "subtitle_draw": "选择一种生物，在画布上创作，然后让它游入深海",
-  "hint_draw": "💡 面向右方绘制 | 停笔1.5秒后 AI 识别相似度，60%+ 可放入深海",
+  "hint_draw": "💡 面向右方绘制 | 先点「AI评分」，通过后再放入深海",
   "btn_ai_check": "AI评分 🔍",
   "btn_swim": "放入深海 🌊",
   "btn_ocean": "进入深海观赏",

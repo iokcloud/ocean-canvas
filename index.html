@@ -87,11 +87,14 @@
         </div>
       </div>
 
-      <p class="hint-text" id="hint-text" data-i18n="hint_draw">💡 Drawing facing right works best | Score 60%+ to release to ocean</p>
+      <p class="hint-text" id="hint-text" data-i18n="hint_draw">💡 Drawing facing right works best | AI score first, then release to ocean</p>
       <div id="ai-score-display" style="text-align:center;margin-top:4px;font-size:0.8rem;min-height:20px;transition:all 0.3s ease"></div>
-
+      <div id="ai-spinner" style="display:none;text-align:center;margin:6px 0">
+        <span style="color:var(--neon-cyan);font-size:0.75rem" data-i18n="ai_checking">AI analyzing...</span>
+      </div>
 
       <div class="action-buttons">
+        <button class="btn-primary" id="ai-check-btn" data-i18n="btn_ai_check">AI Score 🔍</button>
         <button class="btn-primary" id="swim-btn" disabled style="opacity:0.4;cursor:not-allowed" data-i18n="btn_swim">Release to Ocean 🌊</button>
         <a href="ocean.html" class="btn-secondary" data-i18n="btn_ocean">Enter Ocean</a>
         <a href="rank.html" class="btn-secondary" data-i18n="btn_rank">View Rankings</a>

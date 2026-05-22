@@ -32,7 +32,7 @@ export async function onRequestPost(context) {
     return jsonResponse({
       type: creatureType,
       similarity: classification.similarity,
-      isMatch: classification.similarity >= 0.5,
+      isMatch: classification.similarity >= 0.6,
       creativity: creativity.score,
       feedback: classification.feedback,
       suggestedType: classification.suggestedType,
@@ -100,14 +100,14 @@ async function classifyWithAI(env, imageBuffer, expectedType) {
 
 function buildPrompt(expectedType) {
   const typeDescriptions = {
-    fish: 'a fish (look for: body shape, tail/fins, eye, scales pattern. ANY drawing effort counts - even simple stick-figure fish or crude shapes)',
-    jellyfish: 'a jellyfish (look for: dome/bell on top, dangling tentacles below. Even simple dome+lines counts)',
-    octopus: 'an octopus (look for: round head, tentacles extending down. Even a circle with wavy lines counts)',
-    turtle: 'a sea turtle (look for: oval shell, head, flippers. Even a simple oval with legs counts)',
-    crab: 'a crab (look for: body shell, claws on sides, legs. Even a circle with pincers counts)',
-    whale: 'a whale (look for: large rounded body, tail fin, possibly water spout. Even a big blob with tail counts)',
-    shark: 'a shark (look for: streamlined body, dorsal fin, tail. Even a triangle-ish shape with fin counts)',
-    seahorse: 'a seahorse (look for: S-curved body, curled tail, snout. Even an S-shape counts)',
+    fish: 'a fish facing right (body + tail/fins; NOT random scribbles or overlapping loops)',
+    jellyfish: 'a jellyfish (dome/bell + tentacles; NOT random lines)',
+    octopus: 'an octopus (head + multiple tentacles; NOT tangled scribbles)',
+    turtle: 'a sea turtle (shell + head + flippers)',
+    crab: 'a crab (body + claws)',
+    whale: 'a whale (large body + tail; NOT abstract loops)',
+    shark: 'a shark (streamlined body + dorsal fin + tail)',
+    seahorse: 'a seahorse (S-curved body + snout + curled tail)',
   };
 
   const description = typeDescriptions[expectedType] || 'a sea creature of some kind';
@@ -116,14 +116,13 @@ function buildPrompt(expectedType) {
 
 The user was asked to draw: ${description}
 
-SCORING GUIDE (consider this is a SIMPLE SKETCH game):
-- Even a crude outline with the right shape counts! Be encouraging.
-- Recognizable shape + at least 1 feature (eye, fin, tail, tentacle, etc): similarity 0.6-0.85
-- Basic shape that clearly resembles the creature: similarity 0.4-0.6
-- Vague shape that could be the creature: similarity 0.25-0.4
-- Random scribbles, not the creature: similarity 0.0-0.25
-- Give helpful, encouraging feedback about what to add next
-- Remember: this is a FUN drawing game, not an art competition
+SCORING GUIDE — be HONEST and STRICT about whether it looks like the creature:
+- Clear recognizable creature with key features (body, tail, fins, etc): similarity 0.65-0.9
+- Rough but clearly the right animal shape: similarity 0.45-0.64
+- Vague / might be the creature with effort: similarity 0.25-0.44
+- Random scribbles, overlapping loops, tangled lines, NOT the animal: similarity 0.0-0.24
+- Do NOT give high scores to meaningless doodles
+- Give short helpful feedback (what to add: tail, eye, fins...)
 
 Also identify if it more closely resembles a different sea creature.
 

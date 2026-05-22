@@ -10,10 +10,21 @@
   let history = [];
   const MAX_HISTORY = 30;
   let aiScore = null;
+  let aiApproved = false;
+  let aiCheckTimer = null;
+  let aiCheckSeq = 0;
+  let serverCheckInFlight = false;
+
+  const passThreshold = (typeof AI_CONFIG !== 'undefined' && AI_CONFIG.passSimilarity) || 0.6;
+  const debounceMs = (typeof AI_CONFIG !== 'undefined' && AI_CONFIG.debounceMs) || 1500;
+  const aiEnabled = typeof FEATURES === 'undefined' || FEATURES.aiClassification;
+
+  function t(key, fallback) {
+    return typeof I18n !== 'undefined' ? I18n.t(key) : fallback;
+  }
 
   function getTypeHint(type) {
-    const key = 'type_hint_' + type;
-    return typeof I18n !== 'undefined' ? I18n.t(key) : '';
+    return t('type_hint_' + type, '');
   }
 
   let drawW = 480, drawH = 280;
@@ -25,7 +36,7 @@
 
     let savedImage = null;
     if (preserveContent && canvas.width > 0 && canvas.height > 0) {
-      try { savedImage = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch(e) {}
+      try { savedImage = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch (e) {}
     }
 
     canvas.width = drawW;
@@ -37,7 +48,7 @@
     ctx.fillRect(0, 0, drawW, drawH);
 
     if (savedImage) {
-      try { ctx.putImageData(savedImage, 0, 0); } catch(e) {}
+      try { ctx.putImageData(savedImage, 0, 0); } catch (e) {}
     }
 
     if (!preserveContent) {
@@ -61,6 +72,7 @@
     img.onload = () => {
       ctx.clearRect(0, 0, drawW, drawH);
       ctx.drawImage(img, 0, 0);
+      scheduleAICheck();
     };
     img.src = history[history.length - 1];
   }
@@ -73,7 +85,7 @@
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     return {
       x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY
+      y: (clientY - rect.top) * scaleY,
     };
   }
 
@@ -109,28 +121,130 @@
     if (isDrawing) {
       isDrawing = false;
       saveState();
-      runLocalPreview();
+      scheduleAICheck();
     }
+  }
+
+  function isCanvasBlank() {
+    const w = drawW, h = drawH;
+    const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 60));
+    const data = ctx.getImageData(0, 0, w, h).data;
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const i = (y * w + x) * 4;
+        if (data[i] !== 13 || data[i + 1] !== 17 || data[i + 2] !== 23) return false;
+      }
+    }
+    return true;
+  }
+
+  function resetAIScore() {
+    aiScore = null;
+    aiApproved = false;
+    updateSwimBtn();
+  }
+
+  function scheduleAICheck() {
+    if (aiCheckTimer) clearTimeout(aiCheckTimer);
+    if (isCanvasBlank()) {
+      const display = document.getElementById('ai-score-display');
+      if (display) display.innerHTML = '';
+      resetAIScore();
+      return;
+    }
+
+    runLocalPreview();
+    aiCheckTimer = setTimeout(() => runServerAICheck(), debounceMs);
   }
 
   function runLocalPreview() {
     if (typeof LocalAI === 'undefined') return;
-    if (isCanvasBlank()) {
-      const display = document.getElementById('ai-score-display');
-      if (display) display.innerHTML = '';
-      aiApproved = false;
-      aiScore = null;
-      updateSwimBtn();
-      return;
-    }
-    const result = LocalAI.analyze(canvas, ctx, currentType);
-    aiScore = { similarity: result.similarity, isMatch: result.similarity >= 0.6, creativity: result.creativity, feedback: '' };
-    aiApproved = result.similarity >= 0.6;
+    const local = LocalAI.analyze(canvas, ctx, currentType);
+    aiScore = {
+      draftCompletion: local.draftCompletion,
+      similarity: null,
+      creativity: local.creativity,
+      isMatch: false,
+      verified: false,
+      feedback: local.feedback,
+      isScribble: local.isScribble,
+    };
+    aiApproved = false;
     updateSwimBtn();
-    updateLocalScoreDisplay(result);
+    updateScoreDisplay({ checking: !aiEnabled });
   }
 
-  function updateLocalScoreDisplay(result) {
+  async function runServerAICheck() {
+    if (!aiEnabled) {
+      aiApproved = true;
+      aiScore = { similarity: 0.7, creativity: 50, isMatch: true, verified: true, draftCompletion: 0.3 };
+      updateSwimBtn();
+      updateScoreDisplay({});
+      return;
+    }
+
+    if (isCanvasBlank()) return;
+
+    const seq = ++aiCheckSeq;
+    serverCheckInFlight = true;
+    updateScoreDisplay({ checking: true });
+
+    try {
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(b => (b ? resolve(b) : reject(new Error('blob failed'))), 'image/png');
+      });
+
+      const form = new FormData();
+      form.append('image', blob, 'creature.png');
+      form.append('type', currentType);
+
+      const res = await fetch('/api/classify', { method: 'POST', body: form });
+      if (seq !== aiCheckSeq) return;
+
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const similarity = typeof data.similarity === 'number' ? data.similarity : 0;
+      const creativity = typeof data.creativity === 'number' ? data.creativity : 0;
+      const isMatch = similarity >= passThreshold;
+
+      const local = typeof LocalAI !== 'undefined'
+        ? LocalAI.analyze(canvas, ctx, currentType)
+        : { draftCompletion: 0, isScribble: false };
+
+      aiScore = {
+        draftCompletion: local.draftCompletion,
+        similarity,
+        creativity,
+        isMatch,
+        verified: true,
+        feedback: data.feedback || '',
+        suggestedType: data.suggestedType,
+        isScribble: local.isScribble,
+      };
+      aiApproved = isMatch;
+      updateSwimBtn();
+      updateScoreDisplay({});
+    } catch (err) {
+      if (seq !== aiCheckSeq) return;
+      console.warn('[draw] AI classify failed:', err.message);
+      aiScore = Object.assign({}, aiScore || {}, {
+        similarity: null,
+        verified: false,
+        isMatch: false,
+        feedback: t('ai_error_retry', 'AI unavailable, try again in a moment'),
+      });
+      aiApproved = false;
+      updateSwimBtn();
+      updateScoreDisplay({ error: true });
+    } finally {
+      if (seq === aiCheckSeq) serverCheckInFlight = false;
+    }
+  }
+
+  function updateScoreDisplay(opts) {
+    opts = opts || {};
     let display = document.getElementById('ai-score-display');
     if (!display) {
       display = document.createElement('div');
@@ -140,17 +254,46 @@
       hint.parentNode.insertBefore(display, hint.nextSibling);
     }
 
-    const sim = Math.round(result.similarity * 100);
-    const cre = result.creativity;
-    const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 40 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
+    if (opts.checking) {
+      display.innerHTML = `<span style="color:var(--text-muted);font-size:0.72rem">${t('ai_checking', 'AI analyzing...')}</span>`;
+      return;
+    }
 
-    display.innerHTML = `
-      <span style="color:var(--text-muted);font-size:0.65rem">⚡</span>
-      <span style="color:${simColor};font-size:0.78rem">相似度 ${sim}%</span>
-      <span style="margin:0 6px;color:var(--text-muted)">|</span>
-      <span style="color:var(--neon-cyan);font-size:0.78rem">创意分 ${cre}</span>
-      ${sim >= 60 ? '<span style="margin:0 6px;color:var(--text-muted)">|</span><span style="color:var(--neon-green);font-size:0.65rem">✓ 可放入深海</span>' : '<span style="margin:0 6px;color:var(--text-muted)">|</span><span style="color:var(--neon-magenta);font-size:0.65rem">继续添加细节</span>'}
-    `;
+    if (opts.error || !aiScore) {
+      display.innerHTML = `<span style="color:var(--neon-magenta);font-size:0.72rem">${aiScore?.feedback || t('ai_error_retry', 'AI check failed')}</span>`;
+      return;
+    }
+
+    const draft = Math.round((aiScore.draftCompletion || 0) * 100);
+    const parts = [
+      `<span style="color:var(--text-muted);font-size:0.65rem">📝</span>`,
+      `<span style="color:var(--text-secondary);font-size:0.72rem">${t('score_draft', 'Draft')} ${draft}%</span>`,
+    ];
+
+    if (aiScore.similarity != null) {
+      const sim = Math.round(aiScore.similarity * 100);
+      const cre = aiScore.creativity || 0;
+      const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 35 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
+      parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
+      parts.push(`<span style="color:var(--neon-cyan);font-size:0.65rem">🤖</span>`);
+      parts.push(`<span style="color:${simColor};font-size:0.78rem">${t('score_similarity', 'Similarity')} ${sim}%</span>`);
+      parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
+      parts.push(`<span style="color:var(--neon-cyan);font-size:0.78rem">${t('creativity', 'Creativity')} ${cre}</span>`);
+
+      if (aiScore.isMatch) {
+        parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
+        parts.push(`<span style="color:var(--neon-green);font-size:0.65rem">${t('ai_unlocked', '✓ Ready to release')}</span>`);
+      } else {
+        parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
+        const tip = aiScore.feedback || (aiScore.isScribble ? t('ai_feedback_scribble', '') : t('ai_modify', 'Add clearer creature features'));
+        parts.push(`<span style="color:var(--neon-magenta);font-size:0.65rem">${tip}</span>`);
+      }
+    } else {
+      parts.push(`<span style="margin:0 5px;color:var(--text-muted)">|</span>`);
+      parts.push(`<span style="color:var(--text-muted);font-size:0.65rem">${t('ai_feedback_wait_ai', 'Pause for AI similarity check')}</span>`);
+    }
+
+    display.innerHTML = parts.join('');
   }
 
   canvas.addEventListener('mousedown', startDraw);
@@ -187,24 +330,23 @@
   const sizeSlider = document.getElementById('brush-size');
   const sizeLabel = document.getElementById('size-label');
   sizeSlider.addEventListener('input', function() {
-    brushSize = parseInt(this.value);
+    brushSize = parseInt(this.value, 10);
     sizeLabel.textContent = brushSize;
   });
 
   document.getElementById('undo-btn').addEventListener('click', function() {
     undo();
-    setTimeout(runLocalPreview, 100);
   });
 
   document.getElementById('clear-btn').addEventListener('click', function() {
+    if (aiCheckTimer) clearTimeout(aiCheckTimer);
+    aiCheckSeq++;
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, drawW, drawH);
     saveState();
-    aiScore = null;
-    aiApproved = false;
-    updateSwimBtn();
     const display = document.getElementById('ai-score-display');
     if (display) display.innerHTML = '';
+    resetAIScore();
   });
 
   document.querySelectorAll('.creature-btn').forEach(btn => {
@@ -212,25 +354,10 @@
       document.querySelectorAll('.creature-btn').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
       currentType = this.dataset.type;
-      const hint = document.getElementById('hint-text');
-      hint.textContent = getTypeHint(currentType);
+      document.getElementById('hint-text').textContent = getTypeHint(currentType);
+      scheduleAICheck();
     });
   });
-
-  function isCanvasBlank() {
-    const w = drawW, h = drawH;
-    const step = Math.max(1, Math.floor(Math.sqrt(w * h) / 60));
-    const data = ctx.getImageData(0, 0, w, h).data;
-    for (let y = 0; y < h; y += step) {
-      for (let x = 0; x < w; x += step) {
-        const i = (y * w + x) * 4;
-        if (data[i] !== 13 || data[i+1] !== 17 || data[i+2] !== 23) return false;
-      }
-    }
-    return true;
-  }
-
-  let aiApproved = false;
 
   const swimBtn = document.getElementById('swim-btn');
 
@@ -247,20 +374,28 @@
   }
 
   swimBtn.addEventListener('click', async function() {
-    if (!aiApproved) {
-      showToast(typeof I18n!=='undefined'?I18n.t('toast_need_score'):'Score too low, add more detail ✏️');
+    if (isCanvasBlank()) {
+      showToast(t('toast_blank', 'Canvas is blank'));
       return;
     }
-    if (!aiScore) {
-      runLocalPreview();
-      if (!aiApproved) return;
+
+    if (!aiScore || !aiScore.verified) {
+      showToast(t('ai_wait_verify', 'Wait for AI check to finish'));
+      await runServerAICheck();
+      if (!aiApproved) {
+        showToast(t('toast_need_score', 'Score too low, add more detail'));
+        return;
+      }
     }
+
+    if (!aiApproved) {
+      showToast(t('toast_need_score', 'Score too low, add more detail'));
+      return;
+    }
+
     swimBtn.disabled = true;
-    const similarity = aiScore.similarity;
-    const isMatch = aiScore.isMatch;
-    const creativity = aiScore.creativity;
     try {
-      await doSubmitCreature(similarity, isMatch, creativity);
+      await doSubmitCreature(aiScore.similarity, aiScore.isMatch, aiScore.creativity);
     } finally {
       updateSwimBtn();
     }
@@ -276,8 +411,7 @@
     const creature = await addCreature(imageData, currentType, { similarity, creativity, isMatch });
 
     if (typeof DailyChallenge !== 'undefined' && DailyChallenge.checkCompletion(currentType)) {
-      const locale = typeof I18n !== 'undefined' ? I18n.locale : 'en';
-      showToast(locale === 'zh' ? '🎉 每日挑战完成！双倍经验！' : '🎉 Daily challenge complete! Bonus XP!');
+      showToast(I18n.locale === 'zh' ? '🎉 每日挑战完成！双倍经验！' : '🎉 Daily challenge complete! Bonus XP!');
     }
 
     if (typeof AchievementSystem !== 'undefined') {
@@ -286,71 +420,66 @@
     }
 
     if (creature && creature.source === 'global') {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n !== 'undefined' ? I18n.t('toast_global_released') : 'Released to the global ocean!'}`);
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${t('toast_global_released', 'Released to global ocean!')}`);
     } else if (isMatch) {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_released'):'released to ocean!'}`);
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${t('toast_released', 'released!')}`);
     } else {
-      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${typeof I18n!=='undefined'?I18n.t('toast_pending'):'submitted (pending)'}`);
+      showToast(`${CREATURE_TYPES[currentType]?.emoji || '🐟'} ${t('toast_pending', 'submitted (pending)')}`);
     }
 
+    if (aiCheckTimer) clearTimeout(aiCheckTimer);
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, drawW, drawH);
     history = [];
     saveState();
-    aiScore = null;
-    aiApproved = false;
-    updateSwimBtn();
-
-    const display = document.getElementById('ai-score-display');
-    if (display) display.innerHTML = '';
-
+    resetAIScore();
+    document.getElementById('ai-score-display').innerHTML = '';
     showShareModal(tempCanvas, { type: currentType, similarity, creativity, isMatch });
   }
 
   function showShareModal(creatureCanvas, data) {
-    const sim = Math.round((data.similarity || 0.7) * 100);
+    const sim = Math.round((data.similarity || 0) * 100);
     const cre = data.creativity || 50;
     const typeInfo = CREATURE_TYPES[data.type] || CREATURE_TYPES.fish;
-    const passedText = data.isMatch ? '✅ 通过识别' : '⚠️ 待审核';
+    const passedText = data.isMatch ? '✅ ' + t('ai_score_pass', 'Passed') : '⚠️ ' + t('toast_pending', 'Pending');
 
-    let modal = document.createElement('div');
+    const modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(10px)';
 
     modal.innerHTML = `
       <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:16px;padding:28px;max-width:420px;text-align:center;box-shadow:0 0 50px rgba(0,229,255,0.15)">
         <div style="font-size:2.5rem;margin-bottom:8px">${typeInfo.emoji}</div>
-        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-cyan);margin-bottom:16px">你的${typeInfo.name}已入深海！</div>
+        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-cyan);margin-bottom:16px">${typeInfo.name}</div>
         <div style="display:flex;justify-content:center;gap:20px;margin-bottom:20px">
           <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">相似度</div>
-            <div style="color:${sim>=60?'var(--neon-green)':'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">${t('score_similarity', 'Similarity')}</div>
+            <div style="color:${sim >= 60 ? 'var(--neon-green)' : 'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
           </div>
           <div style="width:1px;background:var(--border-subtle)"></div>
           <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">创意分</div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">${t('creativity', 'Creativity')}</div>
             <div style="color:var(--neon-cyan);font-size:1.4rem;font-weight:700">${cre}</div>
           </div>
           <div style="width:1px;background:var(--border-subtle)"></div>
           <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">状态</div>
+            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">${t('status', 'Status')}</div>
             <div style="font-size:0.85rem">${passedText}</div>
           </div>
         </div>
-        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">${typeof I18n!=='undefined'?I18n.t('share_title'):'Share your artwork 🌊'}</div>
+        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">${t('share_title', 'Share your artwork')}</div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-          <button id="share-native" style="padding:10px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:1px">📤 分享作品</button>
+          <button id="share-native" style="padding:10px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.85rem">${t('share_btn', 'Share')}</button>
           <div style="display:flex;gap:8px">
-            <button id="share-twitter" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">𝕏 Twitter</button>
+            <button id="share-twitter" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">Twitter</button>
             <button id="share-reddit" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">Reddit</button>
-            <button id="share-download" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">💾 保存</button>
+            <button id="share-download" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">${t('share_download', 'Save')}</button>
           </div>
         </div>
-        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none;padding:6px;border:1px solid transparent;border-radius:6px;transition:all 0.2s;position:relative;z-index:10">进入深海观赏 →</a>
+        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none">${t('share_go_ocean', 'Enter Ocean')}</a>
       </div>
     `;
 
     document.body.appendChild(modal);
-
     modal.querySelector('#share-native').onclick = () => {
       if (typeof ShareSystem !== 'undefined') ShareSystem.share(creatureCanvas, data);
     };
@@ -366,7 +495,9 @@
         if (blob) {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          a.href = url; a.download = `ocean-canvas-${data.type}.png`; a.click();
+          a.href = url;
+          a.download = `ocean-canvas-${data.type}.png`;
+          a.click();
           setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
       }

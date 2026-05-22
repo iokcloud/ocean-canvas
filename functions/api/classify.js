@@ -58,21 +58,33 @@ let licenseAgreed = false;
 
 async function ensureLicenseAccepted(env) {
   if (licenseAgreed) return;
-  try {
-    await env.AI.run(AI_MODEL, {
-      prompt: 'agree',
-      max_tokens: 1,
-    });
-    licenseAgreed = true;
-  } catch (e) {
-    licenseAgreed = true;
+  for (let i = 0; i < 3; i++) {
+    try {
+      await env.AI.run(AI_MODEL, { prompt: 'agree', max_tokens: 1 });
+      licenseAgreed = true;
+      return;
+    } catch (e) {
+      if (i === 2) { licenseAgreed = true; return; }
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+}
+
+async function aiRunWithRetry(env, input, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await env.AI.run(AI_MODEL, input);
+    } catch (e) {
+      if (i === retries) throw e;
+      await new Promise(r => setTimeout(r, 1000));
+    }
   }
 }
 
 async function classifyWithAI(env, imageBuffer, expectedType) {
   try {
     await ensureLicenseAccepted(env);
-    const response = await env.AI.run(AI_MODEL, {
+    const response = await aiRunWithRetry(env, {
       image: new Uint8Array(imageBuffer),
       prompt: buildPrompt(expectedType),
       max_tokens: 200,
@@ -145,7 +157,7 @@ function fallbackClassification(expectedType) {
 
 async function scoreCreativity(env, imageBuffer, creatureType) {
   try {
-    const response = await env.AI.run(AI_MODEL, {
+    const response = await aiRunWithRetry(env, {
       image: new Uint8Array(imageBuffer),
       prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
 

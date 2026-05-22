@@ -52,7 +52,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-const AI_MODEL = '@cf/anthropic/claude-opus-4.7';
+const AI_MODEL = '@cf/llava-hf/llava-1.5-7b-hf';
 
 let licenseAgreed = false;
 
@@ -63,19 +63,13 @@ async function ensureLicenseAccepted(env) {
 
 async function classifyWithAI(env, imageBuffer, expectedType) {
   try {
-    const imageBase64 = arrayBufferToBase64(imageBuffer);
     const response = await env.AI.run(AI_MODEL, {
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
-          { type: 'text', text: buildPrompt(expectedType) }
-        ]
-      }],
-      max_tokens: 300,
+      image: new Uint8Array(imageBuffer),
+      prompt: buildPrompt(expectedType),
+      max_tokens: 200,
     });
 
-    const text = response.content?.[0]?.text || response.response || '';
+    const text = response.description || response.response || '';
     return parseAIResponse(text, expectedType);
   } catch (error) {
     console.error('AI classification error:', error);
@@ -142,13 +136,9 @@ function fallbackClassification(expectedType) {
 
 async function scoreCreativity(env, imageBuffer, creatureType) {
   try {
-    const imageBase64 = arrayBufferToBase64(imageBuffer);
     const response = await env.AI.run(AI_MODEL, {
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
-          { type: 'text', text: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
+      image: new Uint8Array(imageBuffer),
+      prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
 
 SCORING GUIDE:
 - 80-100: Exceptional! Multiple colors, unique creative touches, expressive style, surprising details, good composition
@@ -161,13 +151,11 @@ Consider: color variety, unique details, expressiveness, composition, effort vis
 Do NOT give high scores for minimal or lazy drawings.
 
 Respond ONLY with JSON, no other text:
-{"score": 65, "highlights": "nice use of neon colors and a creative eye design"}` }
-        ]
-      }],
+{"score": 65, "highlights": "nice use of neon colors and a creative eye design"}`,
       max_tokens: 100,
     });
 
-    const text = response.content?.[0]?.text || response.response || '';
+    const text = response.description || response.response || '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);

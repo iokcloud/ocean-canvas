@@ -13,15 +13,16 @@ export async function onRequestPost(context) {
     const imageBuffer = await imageFile.arrayBuffer();
 
     if (!env.AI) {
-      console.error('[classify] env.AI is undefined - AI binding not configured');
-      const fallback = fallbackClassification(creatureType);
+      console.error('[classify] env.AI is undefined - add Workers AI binding to Pages project');
       return jsonResponse({
         type: creatureType,
-        similarity: fallback.similarity,
-        isMatch: fallback.similarity >= 0.6,
-        creativity: 50,
-        feedback: '[No AI binding] ' + fallback.feedback,
+        similarity: 0,
+        isMatch: false,
+        creativity: 0,
+        feedback: '',
         suggestedType: creatureType,
+        aiUnavailable: true,
+        errorCode: 'AI_BINDING_MISSING',
       });
     }
 

@@ -203,6 +203,9 @@
 
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
+      if (data.aiUnavailable || data.errorCode === 'AI_BINDING_MISSING') {
+        throw new Error('AI_BINDING_MISSING');
+      }
       if (data.error) throw new Error(data.error);
 
       const similarity = typeof data.similarity === 'number' ? data.similarity : 0;
@@ -229,15 +232,20 @@
     } catch (err) {
       if (seq !== aiCheckSeq) return;
       console.warn('[draw] AI classify failed:', err.message);
+      const isBinding = err.message === 'AI_BINDING_MISSING';
       aiScore = Object.assign({}, aiScore || {}, {
-        similarity: null,
-        verified: false,
+        similarity: isBinding ? 0 : null,
+        verified: isBinding,
         isMatch: false,
-        feedback: t('ai_error_retry', 'AI unavailable, try again in a moment'),
+        creativity: isBinding ? 0 : (aiScore?.creativity || 0),
+        feedback: isBinding
+          ? t('ai_binding_missing', 'AI service not configured on server. Contact admin or try later.')
+          : t('ai_error_retry', 'AI unavailable, try again in a moment'),
+        aiUnavailable: isBinding,
       });
       aiApproved = false;
       updateSwimBtn();
-      updateScoreDisplay({ error: true });
+      updateScoreDisplay({ error: true, bindingMissing: isBinding });
     } finally {
       if (seq === aiCheckSeq) serverCheckInFlight = false;
     }
@@ -260,7 +268,13 @@
     }
 
     if (opts.error || !aiScore) {
-      display.innerHTML = `<span style="color:var(--neon-magenta);font-size:0.72rem">${aiScore?.feedback || t('ai_error_retry', 'AI check failed')}</span>`;
+      const color = opts.bindingMissing ? 'var(--neon-gold)' : 'var(--neon-magenta)';
+      display.innerHTML = `<span style="color:${color};font-size:0.72rem;line-height:1.4">${aiScore?.feedback || t('ai_error_retry', 'AI check failed')}</span>`;
+      return;
+    }
+
+    if (aiScore.aiUnavailable) {
+      display.innerHTML = `<span style="color:var(--neon-gold);font-size:0.72rem">${aiScore.feedback}</span>`;
       return;
     }
 

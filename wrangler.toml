@@ -1,6 +1,8 @@
-name = "ocean-canvas-ai"
-main = "worker/index.js"
+# Cloudflare Pages — 静态站 + Functions（/api/classify）
+# Git 推送后 CF 会读取本文件，为 Pages Functions 注入 AI 绑定
+name = "ocean-canvas"
 compatibility_date = "2024-01-01"
+pages_build_output_dir = "."
 
 [ai]
 binding = "AI"

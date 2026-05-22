@@ -46,6 +46,7 @@
   "ai_feedback_wait_ai": "停笔等待 AI 识别",
   "ai_feedback_draw_more": "补上身体、尾巴或鱼鳍",
   "ai_error_retry": "AI 暂时不可用，请稍后再试",
+  "ai_binding_missing": "服务器未配置 AI 识别（需在 Cloudflare 绑定 Workers AI），暂无法评分",
   "ai_wait_verify": "请等待 AI 识别完成",
   "ai_score_pass": "评分通过",
   "ai_score_low": "相似度偏低",

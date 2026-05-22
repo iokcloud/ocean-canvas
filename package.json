@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "npx wrangler pages dev . --port 8788 --compatibility-date 2024-01-01",
+    "check:ai": "node -e \"fetch('http://localhost:8788/api/classify',{method:'POST',body:(()=>{const f=new FormData();f.append('type','fish');return f})()}).then(r=>r.json()).then(console.log).catch(console.error)\"",
     "preview": "npx wrangler pages deployment create . --project-name ocean-canvas",
     "deploy:staging": "git checkout staging && git merge main && git push origin staging",
     "deploy:prod": "git checkout main && git push origin main"

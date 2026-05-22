@@ -112,7 +112,43 @@
     if (isDrawing) {
       isDrawing = false;
       saveState();
+      runLocalPreview();
     }
+  }
+
+  function runLocalPreview() {
+    if (typeof LocalAI === 'undefined') return;
+    if (isCanvasBlank()) {
+      const display = document.getElementById('ai-score-display');
+      if (display) display.innerHTML = '';
+      return;
+    }
+    const result = LocalAI.analyze(canvas, ctx, currentType);
+    updateLocalScoreDisplay(result);
+  }
+
+  function updateLocalScoreDisplay(result) {
+    let display = document.getElementById('ai-score-display');
+    if (!display) {
+      display = document.createElement('div');
+      display.id = 'ai-score-display';
+      display.style.cssText = 'text-align:center;margin-top:4px;font-size:0.8rem;min-height:20px;transition:all 0.3s ease';
+      const hint = document.getElementById('hint-text');
+      hint.parentNode.insertBefore(display, hint.nextSibling);
+    }
+
+    const sim = Math.round(result.similarity * 100);
+    const cre = result.creativity;
+    const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 40 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
+
+    display.innerHTML = `
+      <span style="color:var(--text-muted);font-size:0.65rem">⚡ 预估</span>
+      <span style="color:${simColor};font-size:0.78rem">相似度 ${sim}%</span>
+      <span style="margin:0 6px;color:var(--text-muted)">|</span>
+      <span style="color:var(--neon-cyan);font-size:0.78rem">创意分 ${cre}</span>
+      <span style="margin:0 6px;color:var(--text-muted)">|</span>
+      <span style="color:var(--text-muted);font-size:0.65rem">点AI评分获取详细反馈</span>
+    `;
   }
 
   canvas.addEventListener('mousedown', startDraw);
@@ -153,7 +189,10 @@
     sizeLabel.textContent = brushSize;
   });
 
-  document.getElementById('undo-btn').addEventListener('click', undo);
+  document.getElementById('undo-btn').addEventListener('click', function() {
+    undo();
+    setTimeout(runLocalPreview, 100);
+  });
 
   document.getElementById('clear-btn').addEventListener('click', function() {
     ctx.fillStyle = '#0d1117';

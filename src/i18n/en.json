@@ -48,6 +48,7 @@
   "ai_feedback_draw_more": "Add body, tail or fins",
   "ai_error_retry": "AI unavailable, try again shortly",
   "ai_binding_missing": "AI not configured on server (Cloudflare Workers AI binding required)",
+  "ai_timeout": "AI took too long — try again in a moment",
   "ai_wait_verify": "Wait for AI check to finish",
   "ai_score_pass": "Score passed",
   "ai_score_low": "Low similarity",

@@ -313,10 +313,13 @@
       formData.append('image', blob, 'creature.png');
       formData.append('type', currentType);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
       const resp = await fetch(AI_ENDPOINT, {
         method: 'POST',
         body: formData,
-      });
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
 
       if (!resp.ok) throw new Error('AI check failed');
       const result = await resp.json();
@@ -336,7 +339,11 @@
       return result;
     } catch (err) {
       console.warn('AI classification unavailable, using fallback:', err);
-      aiScore = { similarity: 0, isMatch: false, creativity: 0, feedback: typeof I18n!=='undefined'?I18n.t('ai_fallback'):'AI unavailable, please try again' };
+      const timedOut = err && err.name === 'AbortError';
+      const msg = timedOut
+        ? (typeof I18n !== 'undefined' ? I18n.t('ai_timeout') : 'AI took too long, try again')
+        : (typeof I18n !== 'undefined' ? I18n.t('ai_fallback') : 'AI unavailable, please try again');
+      aiScore = { similarity: 0, isMatch: false, creativity: 0, feedback: msg };
       updateScoreDisplay();
       return aiScore;
     } finally {
@@ -444,7 +451,7 @@
   function showAIScorePanel(similarity, isMatch, creativity, feedback, suggestedType) {
     const sim = Math.round(similarity * 100);
     const typeInfo = CREATURE_TYPES[currentType] || CREATURE_TYPES.fish;
-    const passed = isMatch && similarity >= 0.5;
+    const passed = isMatch && similarity >= 0.6;
 
     let panel = document.getElementById('ai-result-panel');
     if (!panel) {

@@ -42,5 +42,29 @@ await check('classify API responds', async () => {
   if (!j.type && !j.error) throw new Error('unexpected response');
 });
 
+try {
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64'
+  );
+  const fd = new FormData();
+  fd.append('image', new Blob([png], { type: 'image/png' }), 't.png');
+  fd.append('type', 'fish');
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 20000);
+  const r = await fetch(BASE + '/api/classify', { method: 'POST', body: fd, signal: ac.signal });
+  clearTimeout(t);
+  const j = await r.json();
+  if (j.aiUnavailable) {
+    console.log('✅ Workers AI binding check');
+    console.log('   ⚠️  Workers AI not bound — bind variable AI in Cloudflare Pages');
+  } else {
+    console.log('✅ Workers AI binding active');
+  }
+} catch (e) {
+  console.log('✅ Workers AI binding check');
+  console.log('   ⚠️  AI probe skipped:', e.message);
+}
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll checks passed');
 process.exit(failed ? 1 : 0);

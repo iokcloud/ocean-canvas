@@ -37,16 +37,15 @@ export async function onRequestPost(context) {
     }
 
     console.info('[classify] env.AI available, calling vision model');
-    const classification = await classifyWithAI(env, imageBuffer, creatureType);
-    const creativity = await scoreCreativity(env, imageBuffer, creatureType);
+    const result = await classifyWithAI(env, imageBuffer, creatureType);
 
     return jsonResponse({
       type: creatureType,
-      similarity: classification.similarity,
-      isMatch: classification.similarity >= 0.6,
-      creativity: creativity.score,
-      feedback: classification.feedback,
-      suggestedType: classification.suggestedType,
+      similarity: result.similarity,
+      isMatch: result.similarity >= 0.6,
+      creativity: result.creativity,
+      feedback: result.feedback,
+      suggestedType: result.suggestedType,
     });
   } catch (error) {
     return jsonResponse({ error: error.message }, 500);
@@ -75,14 +74,15 @@ async function classifyWithAI(env, imageBuffer, expectedType) {
     const response = await env.AI.run(AI_MODEL, {
       image: imageArray,
       prompt: buildPrompt(expectedType),
-      max_tokens: 200,
+      max_tokens: 220,
     });
 
     const text = response.description || response.response || '';
     return parseAIResponse(text, expectedType);
   } catch (error) {
     console.error('AI classification error:', error);
-    return { ...fallbackClassification(expectedType), feedback: '[AI error: ' + error.message + '] ' + fallbackClassification(expectedType).feedback };
+    const fb = fallbackClassification(expectedType);
+    return { ...fb, feedback: '[AI error: ' + error.message + '] ' + fb.feedback };
   }
 }
 
@@ -115,8 +115,10 @@ SCORING GUIDE (consider this is a SIMPLE SKETCH game):
 
 Also identify if it more closely resembles a different sea creature.
 
+Also score CREATIVITY 0-100 for this sketch (strict: minimal scribbles = low).
+
 Respond ONLY in this exact JSON format with no other text before or after:
-{"similarity": 0.65, "bestMatch": "fish", "feedback": "I can see the fish shape! Try adding an eye and some fins to make it even better."}`;
+{"similarity": 0.65, "creativity": 55, "bestMatch": "fish", "feedback": "I can see the fish shape! Try adding an eye and some fins to make it even better."}`;
 }
 
 function parseAIResponse(text, expectedType) {
@@ -126,6 +128,7 @@ function parseAIResponse(text, expectedType) {
       const parsed = JSON.parse(jsonMatch[0]);
       return {
         similarity: Math.min(1, Math.max(0, parsed.similarity || 0)),
+        creativity: Math.min(100, Math.max(0, parsed.creativity ?? 50)),
         feedback: parsed.feedback || '',
         suggestedType: parsed.bestMatch || expectedType,
       };
@@ -138,52 +141,8 @@ function parseAIResponse(text, expectedType) {
 function fallbackClassification(expectedType) {
   return {
     similarity: 0,
+    creativity: 0,
     feedback: 'AI error. Please try again.',
     suggestedType: expectedType,
   };
-}
-
-async function scoreCreativity(env, imageBuffer, creatureType) {
-  try {
-    const imageArray = [...new Uint8Array(imageBuffer)];
-    const response = await env.AI.run(AI_MODEL, {
-      image: imageArray,
-      prompt: `You are scoring the CREATIVITY of this hand-drawn ${creatureType} sketch on a white background. Be STRICT and accurate.
-
-SCORING GUIDE:
-- 80-100: Exceptional! Multiple colors, unique creative touches, expressive style, surprising details, good composition
-- 60-79: Creative! Has nice details, good use of color, personality beyond basics, some original elements
-- 40-59: Solid effort. Has recognizable features and some thought, but limited creativity or detail
-- 20-39: Basic. Simple attempt with minimal detail, single color, little effort visible
-- 0-19: Very minimal effort, nearly blank, or just random lines
-
-Consider: color variety, unique details, expressiveness, composition, effort visible.
-Do NOT give high scores for minimal or lazy drawings.
-
-Respond ONLY with JSON, no other text:
-{"score": 65, "highlights": "nice use of neon colors and a creative eye design"}`,
-      max_tokens: 100,
-    });
-
-    const text = response.description || response.response || '';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        score: Math.min(100, Math.max(0, parsed.score || 50)),
-        highlights: parsed.highlights || '',
-      };
-    }
-  } catch {}
-
-  return { score: 50, highlights: '' };
-}
-
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
 }

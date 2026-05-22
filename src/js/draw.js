@@ -141,13 +141,16 @@
     const cre = result.creativity;
     const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 40 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
 
+    const draftLabel = typeof I18n !== 'undefined' ? I18n.t('score_draft', 'Draft') : '完成度';
+    const tapHint = typeof I18n !== 'undefined' ? I18n.t('ai_tap_score', 'Tap AI Score for real check') : '点 AI 评分获取真实识别';
+
     display.innerHTML = `
-      <span style="color:var(--text-muted);font-size:0.65rem">⚡ 预估</span>
-      <span style="color:${simColor};font-size:0.78rem">相似度 ${sim}%</span>
+      <span style="color:var(--text-muted);font-size:0.65rem">⚡ ${draftLabel}</span>
+      <span style="color:${simColor};font-size:0.78rem">${sim}%</span>
       <span style="margin:0 6px;color:var(--text-muted)">|</span>
-      <span style="color:var(--neon-cyan);font-size:0.78rem">创意分 ${cre}</span>
+      <span style="color:var(--neon-cyan);font-size:0.78rem">${typeof I18n !== 'undefined' ? I18n.t('creativity', 'Creativity') : '创意'} ${cre}</span>
       <span style="margin:0 6px;color:var(--text-muted)">|</span>
-      <span style="color:var(--text-muted);font-size:0.65rem">点AI评分获取详细反馈</span>
+      <span style="color:var(--text-muted);font-size:0.65rem">${tapHint}</span>
     `;
   }
 

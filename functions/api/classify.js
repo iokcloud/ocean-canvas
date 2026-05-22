@@ -92,23 +92,23 @@ function buildPrompt(expectedType) {
 
   const description = typeDescriptions[expectedType] || 'a sea creature of some kind';
 
-  return `You are analyzing a hand-drawn sketch on a white background. This is a drawing game with STRICT quality standards.
+  return `You are analyzing a CHILD'S HAND-DRAWN SKETCH on a white background. This is a casual drawing game - the drawings are simple, rough, and cartoon-like. Do NOT compare to realistic or detailed art.
 
 The user was asked to draw: ${description}
 
-SCORING GUIDE (be STRICT and accurate):
-- Recognizable creature with good detail (eyes, fins, scales, texture): similarity 0.7-0.95
-- Has 2-3 recognizable features but lacking detail: similarity 0.5-0.7
-- Rough shape that could be the creature but missing key features: similarity 0.3-0.5
-- Barely resembles the creature, mostly abstract lines: similarity 0.15-0.3
-- Random scribbles or nothing recognizable: similarity 0.0-0.15
-- Give specific, honest feedback about what's missing and how to improve
-- Do NOT give high scores for minimal effort
+SCORING GUIDE (consider this is a SIMPLE SKETCH game):
+- Even a crude outline with the right shape counts! Be encouraging.
+- Recognizable shape + at least 1 feature (eye, fin, tail, tentacle, etc): similarity 0.6-0.85
+- Basic shape that clearly resembles the creature: similarity 0.4-0.6
+- Vague shape that could be the creature: similarity 0.25-0.4
+- Random scribbles, not the creature: similarity 0.0-0.25
+- Give helpful, encouraging feedback about what to add next
+- Remember: this is a FUN drawing game, not an art competition
 
 Also identify if it more closely resembles a different sea creature.
 
 Respond ONLY in this exact JSON format with no other text before or after:
-{"similarity": 0.85, "bestMatch": "fish", "feedback": "Good fish shape! I can see the body and tail. Try adding an eye and fins for more detail."}`;
+{"similarity": 0.65, "bestMatch": "fish", "feedback": "I can see the fish shape! Try adding an eye and some fins to make it even better."}`;
 }
 
 function parseAIResponse(text, expectedType) {

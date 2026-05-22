@@ -1,6 +1,10 @@
 (function() {
   let currentSort = 'hot';
 
+  function t(key, fallback) {
+    return typeof I18n !== 'undefined' ? I18n.t(key) : fallback;
+  }
+
   function renderGrid(creatures) {
     const grid = document.getElementById('creature-grid');
     const loading = document.getElementById('loading');
@@ -9,21 +13,27 @@
     if (creatures.length === 0) {
       grid.style.display = 'block';
       loading.style.display = 'none';
-      grid.innerHTML = '<p style="text-align:center;color:var(--text-muted);grid-column:1/-1;padding:40px">深海还是空的...去绘制你的第一个生物吧！</p>';
+      grid.innerHTML = `<p style="text-align:center;color:var(--text-muted);grid-column:1/-1;padding:40px">${t('rank_empty', 'The deep sea is empty... go draw your first creature!')}</p>`;
       return;
     }
 
     creatures.forEach(c => {
+      const sim = c.aiSimilarity ? Math.round(c.aiSimilarity * 100) : null;
+      const cre = c.aiCreativity || 0;
       const card = document.createElement('div');
       card.className = 'creature-card';
       card.innerHTML = `
         <div class="card-type">${c.emoji || '🐟'} ${CREATURE_TYPES[c.type]?.name || c.type}</div>
-        <img src="${c.imageData}" alt="深海生物" loading="lazy" onerror="this.style.display='none';this.parentElement.querySelector('.card-type').textContent+='(图片加载失败)'">
+        <img src="${c.imageData}" alt="" loading="lazy" onerror="this.style.opacity='0.3'">
+        <div class="card-meta">
+          ${sim != null ? `<span class="card-ai">🤖 ${sim}%</span>` : ''}
+          ${cre ? `<span class="card-ai">🎨 ${cre}</span>` : ''}
+        </div>
         <div class="card-score">⭐ ${c.score}</div>
         <div class="vote-controls">
-          <button class="vote-btn upvote" data-id="${c.id}">👍</button>
-          <span style="color:var(--text-secondary);font-size:0.8rem">${c.score}</span>
-          <button class="vote-btn downvote" data-id="${c.id}">👎</button>
+          <button class="vote-btn upvote" data-id="${c.id}" aria-label="upvote">👍</button>
+          <span>${c.score}</span>
+          <button class="vote-btn downvote" data-id="${c.id}" aria-label="downvote">👎</button>
         </div>
       `;
       grid.appendChild(card);
@@ -64,6 +74,9 @@
       document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
       currentSort = this.dataset.sort;
+      const loading = document.getElementById('loading');
+      loading.style.display = 'block';
+      document.getElementById('creature-grid').style.display = 'none';
       renderGrid(await getSortedCreatures(currentSort));
     });
   });

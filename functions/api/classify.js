@@ -1,3 +1,13 @@
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export function onRequestOptions() {
+  return new Response(null, { headers: CORS });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -46,10 +56,7 @@ export async function onRequestPost(context) {
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
+    headers: { 'Content-Type': 'application/json', ...CORS },
   });
 }
 

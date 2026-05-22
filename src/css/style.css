@@ -171,7 +171,10 @@ body {
   justify-content: center;
   gap: 10px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
 }
 
 .creature-btn {
@@ -321,8 +324,16 @@ body {
 .action-buttons {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-top: 8px;
+}
+
+#ai-check-btn {
+  border-color: var(--neon-magenta);
+  color: var(--neon-magenta);
+  background: linear-gradient(135deg, rgba(255, 0, 255, 0.12), rgba(255, 0, 255, 0.04));
 }
 
 .btn-primary {
@@ -509,6 +520,22 @@ body {
   margin-bottom: 4px;
 }
 
+.creature-card .card-meta {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 6px 0;
+  font-size: 0.68rem;
+}
+
+.creature-card .card-ai {
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 229, 255, 0.06);
+}
+
 .creature-card .card-score {
   font-size: 1.1rem;
   font-weight: 700;
@@ -602,10 +629,14 @@ body {
   .nav-logo { font-size: 1rem; }
   .nav-links { gap: 4px; }
   .nav-link { padding: 5px 8px; font-size: 0.7rem; }
+  .global-pool-status { display: none; }
   .section-title { font-size: 1.5rem; }
   .toolbar { gap: 8px; padding: 10px 12px; }
   .draw-canvas-wrapper canvas { width: 100% !important; height: auto !important; }
   .creature-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-  .action-buttons { flex-wrap: wrap; }
+  .action-buttons { flex-direction: column; width: 100%; }
+  .action-buttons .btn-primary,
+  .action-buttons .btn-secondary { width: 100%; max-width: 320px; text-align: center; }
   .tank-controls { flex-wrap: wrap; justify-content: center; width: 90%; }
+  .creature-btn { flex-shrink: 0; }
 }

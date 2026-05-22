@@ -6,7 +6,7 @@
 Ocean Canvas 深海画室 — 手绘深海生物 + AI识别评分 + 共享深海鱼缸观赏互动
 
 ## 当前状态
-- **阶段**: MVP已上线，Phase 1验证期
+- **阶段**: 生产打磨中（staging 验证 → main 发布）
 - **线上地址**: https://ocean.gameschats.com
 - **代码仓库**: https://github.com/iokcloud/ocean-canvas
 - **文档仓库**: ../ocean-canvas-docs/

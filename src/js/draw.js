@@ -378,6 +378,7 @@
 
   const aiCheckBtn = document.getElementById('ai-check-btn');
   const swimBtn = document.getElementById('swim-btn');
+  if (!aiCheckBtn || !swimBtn) return;
 
   function updateSwimBtn() {
     if (aiApproved) {

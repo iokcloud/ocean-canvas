@@ -39,8 +39,6 @@
   "toast_logout": "Logged out",
   "toast_login_needed": "Supabase not configured, cannot login",
   "ai_checking": "AI analyzing...",
-  "score_draft": "Draft",
-  "ai_tap_score": "Tap AI Score for real check",
   "score_similarity": "AI similarity",
   "ai_feedback_scribble": "Looks like scribbles — try a clear fish body and tail",
   "ai_feedback_small": "Draw larger on the canvas",

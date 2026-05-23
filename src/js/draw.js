@@ -112,46 +112,7 @@
     if (isDrawing) {
       isDrawing = false;
       saveState();
-      runLocalPreview();
     }
-  }
-
-  function runLocalPreview() {
-    if (typeof LocalAI === 'undefined') return;
-    if (isCanvasBlank()) {
-      const display = document.getElementById('ai-score-display');
-      if (display) display.innerHTML = '';
-      return;
-    }
-    const result = LocalAI.analyze(canvas, ctx, currentType);
-    updateLocalScoreDisplay(result);
-  }
-
-  function updateLocalScoreDisplay(result) {
-    let display = document.getElementById('ai-score-display');
-    if (!display) {
-      display = document.createElement('div');
-      display.id = 'ai-score-display';
-      display.style.cssText = 'text-align:center;margin-top:4px;font-size:0.8rem;min-height:20px;transition:all 0.3s ease';
-      const hint = document.getElementById('hint-text');
-      hint.parentNode.insertBefore(display, hint.nextSibling);
-    }
-
-    const sim = Math.round(result.similarity * 100);
-    const cre = result.creativity;
-    const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 40 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
-
-    const draftLabel = typeof I18n !== 'undefined' ? I18n.t('score_draft', 'Draft') : '完成度';
-    const tapHint = typeof I18n !== 'undefined' ? I18n.t('ai_tap_score', 'Tap AI Score for real check') : '点 AI 评分获取真实识别';
-
-    display.innerHTML = `
-      <span style="color:var(--text-muted);font-size:0.65rem">⚡ ${draftLabel}</span>
-      <span style="color:${simColor};font-size:0.78rem">${sim}%</span>
-      <span style="margin:0 6px;color:var(--text-muted)">|</span>
-      <span style="color:var(--neon-cyan);font-size:0.78rem">${typeof I18n !== 'undefined' ? I18n.t('creativity', 'Creativity') : '创意'} ${cre}</span>
-      <span style="margin:0 6px;color:var(--text-muted)">|</span>
-      <span style="color:var(--text-muted);font-size:0.65rem">${tapHint}</span>
-    `;
   }
 
   canvas.addEventListener('mousedown', startDraw);
@@ -194,7 +155,6 @@
 
   document.getElementById('undo-btn').addEventListener('click', function() {
     undo();
-    setTimeout(runLocalPreview, 100);
   });
 
   document.getElementById('clear-btn').addEventListener('click', function() {
@@ -204,7 +164,6 @@
     aiScore = null;
     aiApproved = false;
     updateSwimBtn();
-    updateScoreDisplay();
     const panel = document.getElementById('ai-result-panel');
     if (panel) panel.remove();
   });
@@ -300,7 +259,6 @@
   async function checkWithAI() {
     if (!FEATURES.aiClassification) {
       aiScore = { similarity: 0.75, isMatch: true, creativity: 50, feedback: 'AI识别已关闭' };
-      updateScoreDisplay();
       return aiScore;
     }
     if (isCanvasBlank() || isCheckingAI) return null;
@@ -330,12 +288,10 @@
           creativity: 0,
           feedback: typeof I18n !== 'undefined' ? I18n.t('ai_binding_missing') : 'AI not configured on server',
         };
-        updateScoreDisplay();
         return aiScore;
       }
       if (result.error) throw new Error(result.error);
       aiScore = result;
-      updateScoreDisplay();
       return result;
     } catch (err) {
       console.warn('AI classification unavailable, using fallback:', err);
@@ -344,43 +300,12 @@
         ? (typeof I18n !== 'undefined' ? I18n.t('ai_timeout') : 'AI took too long, try again')
         : (typeof I18n !== 'undefined' ? I18n.t('ai_fallback') : 'AI unavailable, please try again');
       aiScore = { similarity: 0, isMatch: false, creativity: 0, feedback: msg };
-      updateScoreDisplay();
       return aiScore;
     } finally {
       isCheckingAI = false;
     }
   }
 
-  function updateScoreDisplay() {
-    let display = document.getElementById('ai-score-display');
-    if (!display) {
-      display = document.createElement('div');
-      display.id = 'ai-score-display';
-      display.style.cssText = 'text-align:center;margin-top:4px;font-size:0.8rem;min-height:20px;transition:all 0.3s ease';
-      const hint = document.getElementById('hint-text');
-      hint.parentNode.insertBefore(display, hint.nextSibling);
-    }
-
-    if (!aiScore) {
-      display.innerHTML = '';
-      return;
-    }
-
-    const sim = Math.round(aiScore.similarity * 100);
-    const cre = aiScore.creativity || 0;
-    const isMatch = aiScore.isMatch;
-    const simColor = sim >= 60 ? 'var(--neon-green)' : sim >= 30 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
-    const matchIcon = isMatch ? '✅' : '⚠️';
-
-    display.innerHTML = `
-      <span style="color:${simColor}">${matchIcon} 相似度 ${sim}%</span>
-      <span style="margin:0 8px;color:var(--text-muted)">|</span>
-      <span style="color:var(--neon-cyan)">🎨 创意分 ${cre}</span>
-      ${aiScore.feedback ? `<span style="margin:0 8px;color:var(--text-muted)">|</span><span style="color:var(--text-secondary)">${aiScore.feedback}</span>` : ''}
-    `;
-  }
-
-  let checkTimeout = null;
   let aiApproved = false;
 
   const aiCheckBtn = document.getElementById('ai-check-btn');
@@ -524,7 +449,6 @@
     aiScore = null;
     aiApproved = false;
     updateSwimBtn();
-    updateScoreDisplay();
 
     const panel = document.getElementById('ai-result-panel');
     if (panel) panel.remove();

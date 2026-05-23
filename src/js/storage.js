@@ -2,8 +2,6 @@ const STORAGE_KEY = 'ocean_canvas_creatures';
 
 const AI_CONFIG = {
   passSimilarity: 0.6,
-  debounceMs: 1500,
-  localDraftCap: 0.35,
 };
 
 const FEATURES = {

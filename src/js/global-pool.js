@@ -191,9 +191,8 @@ var GlobalPool = {
       console.warn('[GlobalPool] Submit failed:', e.message);
     }
 
-    const locale = typeof I18n !== 'undefined' ? I18n.locale : 'en';
     if (typeof showToast === 'function') {
-      showToast(locale === 'zh' ? '全球池提交失败，已保存到本机' : 'Global submit failed, saved locally');
+      showToast(typeof I18n !== 'undefined' ? I18n.t('toast_local_saved') : 'Global submit failed, saved locally');
     }
     return this._addLocal(imageData, type, aiData);
   },

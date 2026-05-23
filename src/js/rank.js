@@ -5,6 +5,29 @@
     return typeof I18n !== 'undefined' ? I18n.t(key) : fallback;
   }
 
+  function recordVote() {
+    const n = parseInt(localStorage.getItem('oc_vote_count') || '0', 10) + 1;
+    localStorage.setItem('oc_vote_count', String(n));
+  }
+
+  function handleVote(btn, delta) {
+    btn.disabled = true;
+    voteCreature(btn.dataset.id, delta).then((c) => {
+      btn.disabled = false;
+      if (c) {
+        recordVote();
+        const card = btn.closest('.creature-card');
+        card.querySelector('.card-score').textContent = '⭐ ' + c.score;
+        card.querySelector('.vote-controls span').textContent = c.score;
+        btn.style.color = delta > 0 ? 'var(--neon-green)' : 'var(--neon-magenta)';
+        setTimeout(() => { btn.style.color = ''; }, 500);
+        if (typeof showToast === 'function') showToast(t('toast_vote_ok', 'Vote counted 👍'));
+      } else if (typeof showToast === 'function') {
+        showToast(t('toast_vote_fail', 'Vote failed, try again'));
+      }
+    });
+  }
+
   function renderGrid(creatures) {
     const grid = document.getElementById('creature-grid');
     const loading = document.getElementById('loading');
@@ -23,7 +46,7 @@
       const card = document.createElement('div');
       card.className = 'creature-card';
       card.innerHTML = `
-        <div class="card-type">${c.emoji || '🐟'} ${CREATURE_TYPES[c.type]?.name || c.type}</div>
+        <div class="card-type">${c.emoji || '🐟'} ${typeof getCreatureLabel === 'function' ? getCreatureLabel(c.type) : (CREATURE_TYPES[c.type]?.name || c.type)}</div>
         <img src="${c.imageData}" alt="" loading="lazy" onerror="this.style.opacity='0.3'">
         <div class="card-meta">
           ${sim != null ? `<span class="card-ai">🤖 ${sim}%</span>` : ''}
@@ -43,29 +66,11 @@
     loading.style.display = 'none';
 
     grid.querySelectorAll('.upvote').forEach(btn => {
-      btn.addEventListener('click', async function() {
-        const c = await voteCreature(this.dataset.id, 1);
-        if (c) {
-          const card = this.closest('.creature-card');
-          card.querySelector('.card-score').textContent = '⭐ ' + c.score;
-          card.querySelector('.vote-controls span').textContent = c.score;
-          this.style.color = 'var(--neon-green)';
-          setTimeout(() => this.style.color = '', 500);
-        }
-      });
+      btn.addEventListener('click', function() { handleVote(this, 1); });
     });
 
     grid.querySelectorAll('.downvote').forEach(btn => {
-      btn.addEventListener('click', async function() {
-        const c = await voteCreature(this.dataset.id, -1);
-        if (c) {
-          const card = this.closest('.creature-card');
-          card.querySelector('.card-score').textContent = '⭐ ' + c.score;
-          card.querySelector('.vote-controls span').textContent = c.score;
-          this.style.color = 'var(--neon-magenta)';
-          setTimeout(() => this.style.color = '', 500);
-        }
-      });
+      btn.addEventListener('click', function() { handleVote(this, -1); });
     });
   }
 

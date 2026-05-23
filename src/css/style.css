@@ -715,7 +715,7 @@ body {
   .nav-link { padding: 5px 8px; font-size: 0.72rem; }
   .nav-actions { margin-left: 6px; padding-left: 8px; gap: 4px; }
   .level-badge { display: none; }
-  .global-pool-status { display: none; }
+  .global-pool-status { font-size: 0.6rem; padding: 4px 6px; margin-left: 4px; }
   .nav-btn { padding: 4px 8px; font-size: 0.68rem; }
   .main-content { padding-top: 52px; }
   .section-title { font-size: 1.5rem; }

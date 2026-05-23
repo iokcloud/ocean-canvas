@@ -266,7 +266,16 @@
 
   async function checkWithAI() {
     if (!FEATURES.aiClassification) {
-      aiScore = { similarity: 0.75, isMatch: true, creativity: 50, feedback: 'AI识别已关闭' };
+      if (FEATURES.devMode) {
+        aiScore = { similarity: 0.75, isMatch: true, creativity: 50, feedback: 'AI off (dev mode)' };
+      } else {
+        aiScore = {
+          similarity: 0,
+          isMatch: false,
+          creativity: 0,
+          feedback: typeof I18n !== 'undefined' ? I18n.t('ai_binding_missing') : 'AI not available',
+        };
+      }
       return aiScore;
     }
     if (isCanvasBlank() || isCheckingAI) return null;
@@ -373,10 +382,13 @@
     const similarity = aiScore ? aiScore.similarity : 0;
     const isMatch = aiScore ? aiScore.isMatch : false;
     const creativity = aiScore ? (aiScore.creativity || 0) : 0;
+    const swimLabel = typeof I18n !== 'undefined' ? I18n.t('btn_swim') : 'Release to Ocean 🌊';
     swimBtn.disabled = true;
+    swimBtn.textContent = typeof I18n !== 'undefined' ? I18n.t('btn_swim_submitting') : 'Releasing…';
     try {
       await doSubmitCreature(similarity, isMatch, creativity);
     } finally {
+      swimBtn.textContent = swimLabel;
       updateSwimBtn();
     }
   });
@@ -384,6 +396,7 @@
   function showAIScorePanel(similarity, isMatch, creativity, feedback, suggestedType) {
     const sim = Math.round(similarity * 100);
     const typeInfo = CREATURE_TYPES[currentType] || CREATURE_TYPES.fish;
+    const typeLabel = typeof getCreatureLabel === 'function' ? getCreatureLabel(currentType) : typeInfo.name;
     const passed = isMatch && similarity >= 0.6;
 
     let panel = document.getElementById('ai-result-panel');
@@ -405,7 +418,7 @@
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
         <span style="font-size:1.2rem">${statusIcon}</span>
         <span style="font-family:Orbitron,monospace;font-size:0.95rem;color:${statusColor}">${statusText}</span>
-        <span style="color:var(--text-muted);font-size:0.75rem">${typeInfo.emoji} ${typeInfo.name}</span>
+        <span style="color:var(--text-muted);font-size:0.75rem">${typeInfo.emoji} ${typeLabel}</span>
       </div>
       <div style="display:flex;justify-content:center;gap:24px;margin-bottom:10px">
         <div>
@@ -419,7 +432,7 @@
         </div>
       </div>
       ${feedback ? `<div style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:8px">${feedback}</div>` : ''}
-      ${!passed && suggestedType && suggestedType !== currentType ? `<div style="color:var(--neon-magenta);font-size:0.75rem;margin-bottom:8px">${typeof I18n!=='undefined'?I18n.t('ai_suggest_type'):'💡 AI thinks it looks more like a'} ${CREATURE_TYPES[suggestedType]?.name || suggestedType}</div>` : ''}
+      ${!passed && suggestedType && suggestedType !== currentType ? `<p style="color:var(--neon-magenta);font-size:0.75rem;margin-bottom:8px">${typeof I18n!=='undefined'?I18n.t('ai_suggest_type'):'💡 AI thinks it looks more like a'} ${typeof getCreatureLabel === 'function' ? getCreatureLabel(suggestedType) : (CREATURE_TYPES[suggestedType]?.name || suggestedType)}</p>` : ''}
       ${!passed ? `<div style="color:var(--text-muted);font-size:0.72rem;margin-top:8px">${typeof I18n!=='undefined'?I18n.t('ai_modify'):'Modify and re-score'}</div>` : ''}
     `;
   }
@@ -467,10 +480,8 @@
   }
 
   function showShareModal(creatureCanvas, data) {
-    const sim = Math.round((data.similarity || 0.7) * 100);
-    const cre = data.creativity || 50;
     const typeInfo = CREATURE_TYPES[data.type] || CREATURE_TYPES.fish;
-    const passedText = data.isMatch ? '✅ 通过识别' : '⚠️ 待审核';
+    const t = (key, fb) => (typeof I18n !== 'undefined' ? I18n.t(key) : fb);
 
     let modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(10px)';
@@ -478,33 +489,17 @@
     modal.innerHTML = `
       <div style="background:var(--bg-card);border:1px solid var(--border-glow);border-radius:16px;padding:28px;max-width:420px;text-align:center;box-shadow:0 0 50px rgba(0,229,255,0.15)">
         <div style="font-size:2.5rem;margin-bottom:8px">${typeInfo.emoji}</div>
-        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-cyan);margin-bottom:16px">你的${typeInfo.name}已入深海！</div>
-        <div style="display:flex;justify-content:center;gap:20px;margin-bottom:20px">
-          <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">相似度</div>
-            <div style="color:${sim>=60?'var(--neon-green)':'var(--neon-gold)'};font-size:1.4rem;font-weight:700">${sim}%</div>
-          </div>
-          <div style="width:1px;background:var(--border-subtle)"></div>
-          <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">创意分</div>
-            <div style="color:var(--neon-cyan);font-size:1.4rem;font-weight:700">${cre}</div>
-          </div>
-          <div style="width:1px;background:var(--border-subtle)"></div>
-          <div>
-            <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:4px">状态</div>
-            <div style="font-size:0.85rem">${passedText}</div>
-          </div>
-        </div>
-        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">${typeof I18n!=='undefined'?I18n.t('share_title'):'Share your artwork 🌊'}</div>
+        <div style="font-family:Orbitron,monospace;font-size:1.1rem;color:var(--neon-cyan);margin-bottom:8px">${t('share_released', 'Your artwork is in the ocean!')}</div>
+        <div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:18px">${t('share_title', 'Share your artwork 🌊')}</div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-          <button id="share-native" style="padding:10px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:1px">📤 分享作品</button>
+          <button id="share-native" style="padding:10px;border:1px solid var(--neon-cyan);border-radius:10px;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.05));color:var(--neon-cyan);cursor:pointer;font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:1px">${t('share_btn', '📤 Share')}</button>
           <div style="display:flex;gap:8px">
-            <button id="share-twitter" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">𝕏 Twitter</button>
-            <button id="share-reddit" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">Reddit</button>
-            <button id="share-download" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">💾 保存</button>
+            <button id="share-twitter" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">${t('share_twitter', '𝕏 Twitter')}</button>
+            <button id="share-reddit" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">${t('share_reddit', 'Reddit')}</button>
+            <button id="share-download" style="flex:1;padding:8px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;font-size:0.78rem">${t('share_download', '💾 Save')}</button>
           </div>
         </div>
-        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none;padding:6px;border:1px solid transparent;border-radius:6px;transition:all 0.2s;position:relative;z-index:10">进入深海观赏 →</a>
+        <a href="ocean.html" style="display:block;color:var(--text-muted);font-size:0.78rem;text-decoration:none;padding:6px">${t('share_go_ocean', 'Enter Ocean →')}</a>
       </div>
     `;
 

@@ -24,6 +24,15 @@ const CREATURE_TYPES = {
   seahorse: { emoji: '🌊', name: '海马', speed: 0.5, wobble: 0.9 }
 };
 
+function getCreatureLabel(type) {
+  if (typeof I18n !== 'undefined') {
+    const key = 'creature_' + type;
+    const label = I18n.t(key);
+    if (label && label !== key) return label;
+  }
+  return CREATURE_TYPES[type]?.name || type;
+}
+
 function saveCreatures(creatures) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(creatures));

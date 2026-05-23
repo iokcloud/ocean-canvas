@@ -157,6 +157,13 @@
     undo();
   });
 
+  function resetDrawHint() {
+    const hint = document.getElementById('hint-text');
+    if (!hint) return;
+    hint.style.display = '';
+    hint.textContent = typeof I18n !== 'undefined' ? I18n.t('hint_draw') : '💡 Draw facing right | AI score first, then release to ocean';
+  }
+
   document.getElementById('clear-btn').addEventListener('click', function() {
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, drawW, drawH);
@@ -166,6 +173,7 @@
     updateSwimBtn();
     const panel = document.getElementById('ai-result-panel');
     if (panel) panel.remove();
+    resetDrawHint();
   });
 
   document.querySelectorAll('.creature-btn').forEach(btn => {
@@ -379,11 +387,12 @@
     const passed = isMatch && similarity >= 0.6;
 
     let panel = document.getElementById('ai-result-panel');
+    const hint = document.getElementById('hint-text');
+    if (hint) hint.style.display = 'none';
     if (!panel) {
       panel = document.createElement('div');
       panel.id = 'ai-result-panel';
-      const hint = document.getElementById('hint-text');
-      hint.parentNode.insertBefore(panel, hint.nextSibling);
+      if (hint && hint.parentNode) hint.parentNode.insertBefore(panel, hint.nextSibling);
     }
 
     const statusColor = passed ? 'var(--neon-green)' : similarity >= 0.4 ? 'var(--neon-gold)' : 'var(--neon-magenta)';
@@ -411,7 +420,7 @@
       </div>
       ${feedback ? `<div style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:8px">${feedback}</div>` : ''}
       ${!passed && suggestedType && suggestedType !== currentType ? `<div style="color:var(--neon-magenta);font-size:0.75rem;margin-bottom:8px">${typeof I18n!=='undefined'?I18n.t('ai_suggest_type'):'💡 AI thinks it looks more like a'} ${CREATURE_TYPES[suggestedType]?.name || suggestedType}</div>` : ''}
-      ${passed ? `<div style="color:var(--neon-green);font-size:0.75rem">${typeof I18n!=='undefined'?I18n.t('ai_unlocked'):'✓ Unlocked'}</div>` : `<div style="color:var(--text-muted);font-size:0.75rem">${typeof I18n!=='undefined'?I18n.t('ai_modify'):'Modify and re-score'}</div>`}
+      ${!passed ? `<div style="color:var(--text-muted);font-size:0.72rem;margin-top:8px">${typeof I18n!=='undefined'?I18n.t('ai_modify'):'Modify and re-score'}</div>` : ''}
     `;
   }
 
@@ -452,6 +461,7 @@
 
     const panel = document.getElementById('ai-result-panel');
     if (panel) panel.remove();
+    resetDrawHint();
 
     showShareModal(tempCanvas, { type: currentType, similarity, creativity, isMatch });
   }

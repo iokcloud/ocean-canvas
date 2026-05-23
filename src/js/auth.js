@@ -14,12 +14,19 @@ var OceanAuth = {
     const existing = document.getElementById('auth-btn');
     if (existing) return;
 
+    const actions = document.getElementById('nav-actions') || nav;
     const btn = document.createElement('button');
     btn.id = 'auth-btn';
-    btn.style.cssText = 'background:transparent;border:1px solid var(--border-subtle);border-radius:8px;padding:4px 10px;color:var(--text-secondary);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:0.75rem;margin-left:8px;transition:all 0.2s';
+    btn.type = 'button';
+    btn.className = 'nav-btn';
     btn.textContent = '登录';
     btn.onclick = () => this.showLoginModal();
-    nav.appendChild(btn);
+    const langBtn = document.getElementById('lang-switch');
+    if (langBtn && actions.contains(langBtn)) {
+      actions.insertBefore(btn, langBtn);
+    } else {
+      actions.appendChild(btn);
+    }
   },
 
   _isAnonUser(user) {
@@ -90,7 +97,7 @@ var OceanAuth = {
       const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '用户';
       const avatar = user.user_metadata?.avatar_url;
       btn.innerHTML = avatar
-        ? `<img src="${avatar}" style="width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:4px">${name}`
+        ? `<img src="${avatar}" alt="">${name}`
         : name;
       btn.onclick = () => this.showUserMenu();
     } else {

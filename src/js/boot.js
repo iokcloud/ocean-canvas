@@ -1,4 +1,8 @@
 var OceanBoot = {
+  ensureNavActions() {
+    return document.getElementById('nav-actions') || document.querySelector('.nav-actions');
+  },
+
   initPage(options) {
     options = options || {};
     if (typeof SupabaseDB !== 'undefined') SupabaseDB.init();

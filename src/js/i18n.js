@@ -62,8 +62,10 @@ var I18n = {
       if (!nav) return;
       btn = document.createElement('button');
       btn.id = 'lang-switch';
-      btn.style.cssText = 'background:transparent;border:1px solid var(--border-subtle);border-radius:8px;padding:4px 8px;color:var(--text-muted);cursor:pointer;font-family:JetBrains Mono,monospace;font-size:0.7rem;margin-left:6px;transition:all 0.2s';
-      nav.appendChild(btn);
+      btn.type = 'button';
+      btn.className = 'nav-btn nav-btn--lang';
+      const actions = document.getElementById('nav-actions');
+      (actions || nav).appendChild(btn);
     }
     btn.textContent = this.locale === 'en' ? '中文' : 'EN';
     btn.onclick = () => this.setLocale(this.locale === 'en' ? 'zh' : 'en');

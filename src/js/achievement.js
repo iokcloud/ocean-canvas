@@ -89,13 +89,13 @@ var AchievementSystem = {
   renderBadge() {
     let badge = document.getElementById('level-badge');
     if (!badge) {
-      const nav = document.querySelector('.nav');
-      if (!nav) return;
-      badge = document.createElement('span');
+      const actions = document.getElementById('nav-actions');
+      if (!actions) return;
+      badge = document.createElement('button');
       badge.id = 'level-badge';
-      badge.style.cssText = 'position:absolute;top:8px;right:80px;font-family:Orbitron,monospace;font-size:0.65rem;color:var(--neon-gold);display:flex;align-items:center;gap:4px;cursor:pointer;z-index:100';
-      nav.style.position = 'relative';
-      nav.appendChild(badge);
+      badge.type = 'button';
+      badge.className = 'level-badge';
+      actions.insertBefore(badge, actions.firstChild);
       badge.onclick = () => this.showProfile();
     }
 

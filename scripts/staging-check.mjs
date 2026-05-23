@@ -36,6 +36,14 @@ await check('index has ai-check-btn', async () => {
   if (!html.includes('global-pool.js')) throw new Error('missing global-pool');
 });
 
+await check('nav layout assets deployed', async () => {
+  const html = await (await fetch(BASE + '/index.html')).text();
+  const css = await (await fetch(BASE + '/src/css/style.css')).text();
+  if (!html.includes('nav-actions')) throw new Error('missing nav-actions in HTML');
+  if (!css.includes('.nav-actions')) throw new Error('missing .nav-actions in CSS');
+  if (!css.includes('.level-badge')) throw new Error('missing .level-badge in CSS');
+});
+
 await check('classify API responds', async () => {
   const r = await fetch(BASE + '/api/classify', { method: 'POST', body: new FormData() });
   const j = await r.json();
